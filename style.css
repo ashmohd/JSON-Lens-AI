@@ -1,0 +1,248 @@
+body {
+  font-family: Arial, sans-serif;
+  margin: 0;
+  padding: 10px;
+  background-color: #f4f4f4; /* Default light theme */
+  color: #333;
+  transition: background-color 0.3s, color 0.3s;
+}
+
+body.theme-dark {
+  background-color: #222;
+  color: #eee;
+}
+
+.toolbar {
+  padding: 5px;
+  margin-bottom: 10px;
+  background-color: #e0e0e0;
+  border-bottom: 1px solid #ccc;
+}
+
+body.theme-dark .toolbar {
+  background-color: #333;
+  border-bottom: 1px solid #555;
+}
+
+.toolbar button {
+  margin-right: 5px;
+}
+
+.container {
+  /* Add styles if needed, e.g., for max-width or centering */
+}
+
+#json-viewer {
+  border: 1px solid #ccc;
+  padding: 10px;
+  min-height: 200px;
+  white-space: pre-wrap; /* To respect newlines and spaces in stringified JSON */
+  font-family: monospace;
+}
+
+body.theme-dark #json-viewer {
+  border-color: #555;
+}
+
+#raw-json {
+  width: calc(100% - 22px); /* Account for padding/border */
+  min-height: 200px;
+  border: 1px solid #ccc;
+  padding: 10px;
+  font-family: monospace;
+}
+
+body.theme-dark #raw-json {
+  background-color: #333;
+  color: #eee;
+  border-color: #555;
+}
+
+#error-message {
+  color: red;
+  font-weight: bold;
+  padding: 10px;
+  border: 1px solid red;
+  margin-bottom: 10px;
+}
+
+.ai-features {
+  margin-top: 20px;
+  padding-top: 10px;
+  border-top: 1px solid #ccc;
+}
+body.theme-dark .ai-features {
+  border-top-color: #555;
+}
+
+.ai-features h3 {
+  margin-top: 0;
+}
+
+.ai-features div { /* This is a general selector for children divs within .ai-features */
+  margin-bottom: 10px;
+}
+
+/* Specific styling for controls within .ai-features divs */
+.ai-features input[type="text"],
+.ai-features select,
+.ai-features button {
+  padding: 5px;
+  margin-right: 5px;
+}
+
+body.theme-dark .ai-features input[type="text"],
+body.theme-dark .ai-features select {
+  background-color: #444;
+  color: #eee;
+  border: 1px solid #666;
+}
+
+/* Note: The example doesn't style .ai-features button in dark theme, but it's good practice */
+body.theme-dark .ai-features button {
+  /* Example: you might want to style buttons for dark theme as well */
+  background-color: #555; /* Example dark theme button background */
+  color: #eee; /* Example dark theme button text color */
+  border: 1px solid #777; /* Example dark theme button border */
+}
+
+/* Styling for the .ai-controls convenience class (if used consistently in HTML) */
+.ai-controls {
+    /* Styles for the div that groups API key and model - already covered by .ai-features div */
+}
+
+/* Styling for output areas (if needed beyond the generic .ai-features div) */
+/* Example:
+#ai-summary-output, #nlq-output, #ai-schema-output, #ai-explain-output {
+  background-color: #f9f9f9;
+  border: 1px dashed #ddd;
+  padding: 8px;
+  min-height: 20px;
+  white-space: pre-wrap;
+}
+
+body.theme-dark #ai-summary-output,
+body.theme-dark #nlq-output,
+body.theme-dark #ai-schema-output,
+body.theme-dark #ai-explain-output {
+  background-color: #2c2c2c;
+  border-color: #444;
+  color: #ccc;
+}
+*/
+
+/* --- JSON Tree Syntax Highlighting & Structure --- */
+
+/* Reset for JSON lists (ul elements) */
+.json-object,
+.json-array {
+  list-style-type: none; /* Remove default bullets */
+  margin: 0;             /* Remove default margins */
+  padding-left: 20px;    /* Indentation for nesting levels */
+  border-left: 1px solid #eee; /* Visual guide for structure (light theme) */
+}
+
+body.theme-dark .json-object,
+body.theme-dark .json-array {
+  border-left: 1px solid #444; /* Visual guide for structure (dark theme) */
+}
+
+/* Styling for list items (li elements) within JSON tree */
+.json-object li,
+.json-array li {
+  padding: 2px 0; /* Spacing for each key-value pair or array item */
+  /* If needed, add a small bottom border for separation:
+  border-bottom: 1px dotted #f0f0f0;
+  */
+}
+/* body.theme-dark .json-object li,
+body.theme-dark .json-array li {
+  border-bottom: 1px dotted #3a3a3a;
+} */
+
+
+/* Syntax Highlighting - Light Theme (default) */
+.json-key {
+  color: #a52a2a; /* Brown */
+  font-weight: bold; /* Keys are often bold */
+}
+.json-string {
+  color: #008000; /* Green */
+}
+.json-number {
+  color: #0000ff; /* Blue */
+}
+.json-boolean {
+  color: #ff00ff; /* Magenta */
+  font-weight: bold;
+}
+.json-null {
+  color: #808080; /* Gray */
+  font-style: italic;
+}
+/* .json-value is a wrapper, can be used for general value styling if needed */
+
+
+/* Syntax Highlighting - Dark Theme */
+body.theme-dark .json-key {
+  color: #d27b53; /* Lighter brown/orange for dark background */
+}
+body.theme-dark .json-string {
+  color: #8fbc8f; /* Light green for dark background */
+}
+body.theme-dark .json-number {
+  color: #7cb9e8; /* Light blue for dark background */
+}
+body.theme-dark .json-boolean {
+  color: #dda0dd; /* Light magenta/purple for dark background */
+}
+body.theme-dark .json-null {
+  color: #aaa;    /* Lighter Gray for dark background */
+}
+
+/* --- Collapsible Node Styling --- */
+.json-toggler {
+  cursor: pointer;
+  margin-right: 5px;
+  user-select: none; /* Prevent text selection on toggle click */
+}
+
+.json-entry-header {
+  display: flex;
+  align-items: center; /* Vertically align toggler, brackets, count */
+}
+
+.json-item-count {
+  font-style: italic;
+  color: #666; /* Muted color for item count */
+  margin-left: 5px;
+  font-size: 0.9em;
+}
+
+body.theme-dark .json-item-count {
+  color: #aaa;
+}
+
+.json-punctuation {
+  /* General punctuation like { } [ ] - can be styled if needed */
+  /* Example: color: #888; */
+  /* For now, let them inherit color unless specific styling is wanted */
+}
+
+/* Hide child list and closing punctuation when node is collapsed */
+.collapsed-node > ul.json-object,
+.collapsed-node > ul.json-array {
+  display: none;
+}
+
+/* Selects the last span.json-punctuation within a collapsed node (intended for closing bracket/brace) */
+.collapsed-node > span.json-punctuation:last-of-type {
+  display: none;
+}
+
+/* Optional: Style the ... placeholder when collapsed (if JS adds it) */
+.collapsed-node > .json-entry-header > .json-item-count::after {
+ content: " ..."; /* Add ellipsis to item count when collapsed */
+ /* color: #666; */ /* Or inherit */
+}
+```
