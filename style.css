@@ -302,6 +302,82 @@ body.theme-dark .popup select {
 }
 */
 
+/* --- Model Info Button and Popup Styles --- */
+.info-button { /* Style for #view-model-info-button */
+  padding: 3px 8px;
+  font-size: 0.85em;
+  /* margin-left is set inline in HTML for now */
+  /* Inherits general button styles from .popup button or .toolbar button if applicable */
+}
+
+#model-info-popup {
+  width: 85%; /* Wider than settings popup */
+  max-width: 950px;
+  max-height: 85vh;
+  /* General .popup styles for positioning, bg, border, shadow, z-index are inherited */
+}
+
+#model-info-popup .popup-content {
+  overflow-y: auto;
+  max-height: calc(85vh - 80px); /* Account for padding and header */
+  padding-right: 10px; /* Space for scrollbar if content overflows */
+}
+
+/* .popup-header and .close-button are already styled generally for .popup */
+/* We can add specific overrides if needed, but current generic styles might be okay. */
+
+#model-info-table-container {
+  margin-top: 10px;
+}
+
+#model-info-table-container table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85em; /* Slightly smaller for more info */
+}
+
+#model-info-table-container th,
+#model-info-table-container td {
+  border: 1px solid #ddd;
+  padding: 6px 8px; /* Slightly reduced padding */
+  text-align: left;
+  vertical-align: top;
+}
+
+body.theme-dark #model-info-table-container th,
+body.theme-dark #model-info-table-container td {
+  border-color: #4a4a4a;
+}
+
+#model-info-table-container thead th {
+  background-color: #e9e9e9;
+  font-weight: bold;
+  position: sticky; /* Keep headers visible on scroll */
+  top: 0;
+  z-index: 1; /* Ensure header stays above scrolling content */
+}
+body.theme-dark #model-info-table-container thead th {
+  background-color: #3a3a3a;
+}
+
+#model-info-table-container tbody tr:nth-child(even) {
+  background-color: #f7f7f7;
+}
+body.theme-dark #model-info-table-container tbody tr:nth-child(even) {
+  background-color: #2f2f2f;
+}
+
+#model-info-table-container p { /* For the note above the table */
+    font-size: 0.9em;
+    margin-bottom: 12px;
+    color: #555;
+    line-height: 1.4;
+}
+body.theme-dark #model-info-table-container p {
+    color: #bbb;
+}
+
+
 /* --- Copy Utility Styles --- */
 
 /* Common class for all clickable copy elements */

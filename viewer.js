@@ -36,6 +36,11 @@ document.addEventListener('DOMContentLoaded', () => {
   const closeSettingsPopupButton = document.getElementById('close-settings-popup');
   const breadcrumbContainer = document.getElementById('breadcrumb-container');
 
+  // Model Info Popup Elements
+  const viewModelInfoButton = document.getElementById('view-model-info-button');
+  const modelInfoPopup = document.getElementById('model-info-popup');
+  const closeModelInfoPopupButton = document.getElementById('close-model-info-popup');
+
   // Search Controls
   const searchTermInput = document.getElementById('search-term');
   const searchTypeValuesRadio = document.getElementById('search-type-values');
@@ -50,6 +55,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // Jump to Path controls
   const jumpToPathInput = document.getElementById('jump-to-path-input');
   const jumpToPathButton = document.getElementById('jump-to-path-button');
+  const gotoAiInsightsButton = document.getElementById('goto-ai-insights-button');
 
   // Settings Inputs
   const settingFontSizeInput = document.getElementById('setting-font-size');
@@ -58,7 +64,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // Constants for settings
   const DEFAULT_FONT_SIZE = 13;
   const DEFAULT_INDENT_WIDTH = 20; // Default indentation in pixels
-  const DEFAULT_MODEL = 'gemini-pro'; // Default AI Model
+  const DEFAULT_MODEL = 'gemini-1.5-flash'; // Updated Default AI Model
   const FONT_SIZE_KEY = 'setting_fontSize';
   const INDENT_WIDTH_KEY = 'setting_indentWidth';
   const API_KEY_KEY = 'geminiApiKey'; // Storage key for API Key
@@ -960,22 +966,29 @@ document.addEventListener('DOMContentLoaded', () => {
     summarizeButton.disabled = true;
 
     try {
-      let jsonString = JSON.stringify(currentJsonData);
-      // TODO: For very large JSON, implement truncation/sampling (e.g., based on string length or token count)
-      // to avoid exceeding API limits and to reduce cost/latency.
-      // For now, sending the whole string. Max 2M characters for gemini-pro context window.
-      const MAX_JSON_LENGTH = 1800000; // Slightly less than 2M to leave room for prompt.
-      if (jsonString.length > MAX_JSON_LENGTH) {
-          // Simple truncation, could be smarter (e.g. keep first/last N lines or structural elements)
-          jsonString = jsonString.substring(0, MAX_JSON_LENGTH) + "\n... (JSON truncated due to length)";
-          console.warn("JSON string truncated for summarization due to excessive length.");
+      const fullJsonString = JSON.stringify(currentJsonData);
+      const MAX_JSON_STRING_LENGTH_FOR_SUMMARY = 150000; // Approx 30-40k tokens
+      let jsonToSend = fullJsonString;
+      let wasTruncated = false;
+      let truncationNoticeForUser = "";
+      let promptPrefix = "";
+
+      if (fullJsonString.length > MAX_JSON_STRING_LENGTH_FOR_SUMMARY) {
+        wasTruncated = true;
+        jsonToSend = fullJsonString.substring(0, MAX_JSON_STRING_LENGTH_FOR_SUMMARY);
+        console.warn(`JSON string truncated for summarization from ${fullJsonString.length} to ${jsonToSend.length} characters.`);
+        
+        promptPrefix = `Note: The following JSON data has been truncated due to its large size (original length ${fullJsonString.length} characters, truncated to ${jsonToSend.length} characters). Please provide a summary based on this partial data. `;
+        
+        truncationNoticeForUser = `<p style="font-style: italic; color: orange; margin-bottom: 10px;">Note: The original JSON was too large and was truncated before summarization. The summary is based on the initial part of the data (approx. first ${MAX_JSON_STRING_LENGTH_FOR_SUMMARY.toLocaleString()} characters).</p>`;
       }
+      // TODO: Implement more sophisticated truncation/sampling for very large JSON (e.g., structural sampling) if this basic truncation isn't sufficient.
 
 
-      const promptText = `Please provide a concise summary of the following JSON data. Describe its main purpose, overall structure, and identify any key entities or important fields. JSON data: 
+      const promptText = `${promptPrefix}Please provide a concise summary of the following JSON data. Describe its main purpose, overall structure, and identify any key entities or important fields. JSON data: 
 
 \`\`\`json
-${jsonString}
+${jsonToSend}
 \`\`\`
 
 Summary:`;
@@ -997,39 +1010,67 @@ Summary:`;
         body: JSON.stringify(requestBody)
       });
 
-      const responseData = await response.json();
+      console.log('API Response Status:', response.status, response.statusText);
+      const contentType = response.headers.get('content-type');
+      console.log('API Response Content-Type:', contentType);
+
+      const responseText = await response.text();
+      console.log('API Raw Response Text:', responseText);
 
       if (!response.ok) {
-        console.error('Gemini API Error:', responseData);
-        let errorMsg = `Error: ${response.status} ${response.statusText}`;
-        if (responseData.error && responseData.error.message) {
-          errorMsg += ` - ${responseData.error.message}`;
+        let errorMsg = `API Error: ${response.status} ${response.statusText}.`;
+        if (responseText) {
+          errorMsg += ` Response: ${responseText.substring(0, 500)}`; // Show snippet of error
         }
-        summaryOutputDiv.textContent = `API Error: ${errorMsg}`;
+        summaryOutputDiv.textContent = errorMsg;
         showNotification(errorMsg, summarizeButton.getBoundingClientRect().x, summarizeButton.getBoundingClientRect().bottom + 5, true);
-      } else {
+        // No need to throw here, finally block will handle UI reset
+        return; 
+      }
+
+      if (!contentType || !contentType.includes('application/json')) {
+        summaryOutputDiv.textContent = `Error: Unexpected content type received from API: ${contentType}. Expected application/json. Response: ${responseText.substring(0,500)}`;
+        showNotification("Error: Response was not JSON.", summarizeButton.getBoundingClientRect().x, summarizeButton.getBoundingClientRect().bottom + 5, true);
+        return;
+      }
+
+      try {
+        const responseData = JSON.parse(responseText);
+        let summaryHtml = "";
+        if (wasTruncated) {
+          summaryHtml += truncationNoticeForUser;
+        }
+
         if (responseData.candidates && responseData.candidates[0] && responseData.candidates[0].content && responseData.candidates[0].content.parts && responseData.candidates[0].content.parts[0]) {
-          const summary = responseData.candidates[0].content.parts[0].text;
-          summaryOutputDiv.textContent = summary; // Display plain text summary
-          // For markdown, you might use a library or simple parsing later.
+          const summaryText = responseData.candidates[0].content.parts[0].text;
+          // Append summary text (escaping HTML is good practice if summary can contain HTML-like chars)
+          const summaryTextNode = document.createTextNode(summaryText);
+          const tempDiv = document.createElement('div'); // Create a temporary div to hold the text node
+          tempDiv.appendChild(summaryTextNode);
+          summaryHtml += tempDiv.innerHTML; // Get HTML string from the text node
+          summaryOutputDiv.innerHTML = summaryHtml;
+
         } else if (responseData.promptFeedback && responseData.promptFeedback.blockReason) {
             const blockReason = responseData.promptFeedback.blockReason;
-            const safetyRatings = responseData.promptFeedback.safetyRatings.map(r => `${r.category}: ${r.probability}`).join(', ');
-            summaryOutputDiv.textContent = `Content blocked by API. Reason: ${blockReason}. Safety Ratings: ${safetyRatings}`;
+            const safetyRatings = responseData.promptFeedback.safetyRatings ? responseData.promptFeedback.safetyRatings.map(r => `${r.category}: ${r.probability}`).join(', ') : 'N/A';
+            summaryOutputDiv.innerHTML = summaryHtml + `Content blocked by API. Reason: ${blockReason}. Safety Ratings: ${safetyRatings}`;
             showNotification(`Content blocked: ${blockReason}`, summarizeButton.getBoundingClientRect().x, summarizeButton.getBoundingClientRect().bottom + 5, true);
+        } else {
+          summaryOutputDiv.innerHTML = summaryHtml + "Could not extract summary from API response structure.";
+          console.error('Unexpected API response JSON structure:', responseData);
         }
-         else {
-          summaryOutputDiv.textContent = "Could not extract summary from API response.";
-          console.error('Unexpected API response structure:', responseData);
-        }
+      } catch (parseError) {
+        console.error('Error parsing API response JSON:', parseError);
+        summaryOutputDiv.textContent = `Error: Failed to parse API response as JSON. Raw response: ${responseText.substring(0, 500)}...`;
+        showNotification("Error: Invalid JSON response from API.", summarizeButton.getBoundingClientRect().x, summarizeButton.getBoundingClientRect().bottom + 5, true);
       }
-    } catch (error) {
-      console.error('Error during summarization fetch:', error);
+
+    } catch (error) { // Catches network errors or errors from await response.text() if response itself is flawed
+      console.error('Error during summarization fetch operation:', error);
       summaryOutputDiv.textContent = `Network or fetch error: ${error.message}`;
       showNotification(`Network error: ${error.message}`, summarizeButton.getBoundingClientRect().x, summarizeButton.getBoundingClientRect().bottom + 5, true);
     } finally {
       summarizeButton.disabled = false;
-      // Remove spinner if it's still there (e.g. if error occurred before replacing content)
       const spinner = summaryOutputDiv.querySelector('.loading-spinner');
       if (spinner) spinner.remove();
     }
@@ -1037,15 +1078,264 @@ Summary:`;
 
   if(summarizeButton) summarizeButton.addEventListener('click', handleSummarizeJson);
   
+  async function handleNlqSubmit() {
+    const apiKey = settingApiKeyInput.value.trim();
+    const selectedModel = settingModelSelect.value;
+    const nlqQuery = nlqInput.value.trim();
+
+    if (!apiKey) {
+      showNotification("API Key is required for AI features. Please set it in Settings.", nlqSubmitButton.getBoundingClientRect().x, nlqSubmitButton.getBoundingClientRect().bottom + 5, true);
+      return;
+    }
+    if (!nlqQuery) {
+      showNotification("Please enter a natural language query.", nlqInput.getBoundingClientRect().x, nlqInput.getBoundingClientRect().bottom + 5, true);
+      return;
+    }
+    if (!currentJsonData) {
+      nlqOutputDiv.textContent = "No JSON data loaded to query.";
+      return;
+    }
+
+    nlqOutputDiv.innerHTML = `Processing query with ${selectedModel}... <span class="loading-spinner"></span>`;
+    nlqSubmitButton.disabled = true;
+    nlqInput.disabled = true;
+
+    try {
+      const fullJsonString = JSON.stringify(currentJsonData);
+      const MAX_JSON_STRING_LENGTH_FOR_NLQ = 150000; // Consistent with summarizer for now
+      let jsonContextString = fullJsonString;
+      let wasTruncated = false;
+      let truncationNoticeForUser = "";
+      let promptContextNote = "";
+
+      if (fullJsonString.length > MAX_JSON_STRING_LENGTH_FOR_NLQ) {
+        wasTruncated = true;
+        jsonContextString = fullJsonString.substring(0, MAX_JSON_STRING_LENGTH_FOR_NLQ);
+        console.warn(`JSON string truncated for NLQ from ${fullJsonString.length} to ${jsonContextString.length} characters.`);
+        promptContextNote = `\n\nNote: The provided JSON data was truncated due to its size (original length ${fullJsonString.length} characters, truncated to ${jsonContextString.length} characters). Base your JSONPath on this partial data.`;
+        truncationNoticeForUser = `<p style="font-style: italic; color: orange; margin-bottom: 10px;">Note: The original JSON was too large and was truncated. The query was based on the initial part of the data (approx. first ${MAX_JSON_STRING_LENGTH_FOR_NLQ.toLocaleString()} characters).</p>`;
+      }
+
+      let promptText = "Given the following JSON data, translate the natural language query into a single, valid JSONPath expression. ";
+      promptText += "Only return the JSONPath expression itself (e.g., $.store.book[*].author). Do not include any markdown, explanations, or surrounding text. ";
+      promptText += "If you cannot determine a valid JSONPath from the query, or if the query is too ambiguous, return the exact string 'INVALID_PATH'.";
+      promptText += promptContextNote; // Add truncation note if applicable
+      promptText += `\n\nJSON Data:\n\`\`\`json\n${jsonContextString}\n\`\`\`\n\nNatural Language Query: "${nlqQuery}"\n\nJSONPath:`;
+      
+      const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${selectedModel}:generateContent?key=${apiKey}`;
+      const requestBody = {
+        contents: [{ parts: [{ text: promptText }] }],
+        generationConfig: { // More deterministic output for JSONPath
+          temperature: 0.1, 
+        }
+      };
+
+      const response = await fetch(apiUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(requestBody)
+      });
+
+      console.log('NLQ API Response Status:', response.status, response.statusText);
+      const contentType = response.headers.get('content-type');
+      console.log('NLQ API Response Content-Type:', contentType);
+      const responseText = await response.text();
+      console.log('NLQ API Raw Response Text:', responseText);
+
+      let outputHtml = "";
+      if (wasTruncated) {
+        outputHtml += truncationNoticeForUser;
+      }
+
+      if (!response.ok) {
+        let errorMsg = `API Error: ${response.status} ${response.statusText}.`;
+        if (responseText) {
+          errorMsg += ` Response: ${responseText.substring(0, 500)}`;
+        }
+        nlqOutputDiv.innerHTML = outputHtml + `<p style="color: red;">${errorMsg}</p>`;
+        showNotification(errorMsg, nlqSubmitButton.getBoundingClientRect().x, nlqSubmitButton.getBoundingClientRect().bottom + 5, true);
+        return;
+      }
+
+      if (!contentType || !contentType.includes('application/json')) {
+        nlqOutputDiv.innerHTML = outputHtml + `<p style="color: red;">Error: Unexpected content type received from API: ${contentType}. Expected application/json. Response: ${responseText.substring(0,500)}</p>`;
+        showNotification("Error: Response was not JSON.", nlqSubmitButton.getBoundingClientRect().x, nlqSubmitButton.getBoundingClientRect().bottom + 5, true);
+        return;
+      }
+
+      try {
+        const responseData = JSON.parse(responseText);
+        if (responseData.candidates && responseData.candidates[0] && responseData.candidates[0].content && responseData.candidates[0].content.parts && responseData.candidates[0].content.parts[0]) {
+          const generatedPath = responseData.candidates[0].content.parts[0].text.trim();
+          if (generatedPath === 'INVALID_PATH' || generatedPath === '' || !generatedPath.startsWith('$')) {
+            nlqOutputDiv.innerHTML = outputHtml + "<p>Could not determine a valid JSONPath for your query. Please try rephrasing or be more specific.</p>";
+             if(generatedPath !== 'INVALID_PATH' && generatedPath !== '') {
+                nlqOutputDiv.innerHTML += `<p style="font-size:0.9em; color:grey;">Model returned: <code>${generatedPath}</code></p>`;
+            }
+          } else {
+            // Attempt to jump to the path
+            const targetData = getNodeDataByPath(currentJsonData, generatedPath);
+            let pathFeedback = "";
+            if (targetData !== undefined) {
+                expandPath(generatedPath);
+                updateBreadcrumbs(generatedPath);
+                pathFeedback = ` <span style="color: green;">(Path found and highlighted)</span>`;
+            } else {
+                pathFeedback = ` <span style="color: orange;">(Path not found in current JSON structure, but syntax might be valid)</span>`;
+            }
+            nlqOutputDiv.innerHTML = outputHtml + `<p>Generated JSONPath:</p><pre><code>${generatedPath}</code></pre>${pathFeedback}`;
+          }
+        } else if (responseData.promptFeedback && responseData.promptFeedback.blockReason) {
+            const blockReason = responseData.promptFeedback.blockReason;
+            const safetyRatings = responseData.promptFeedback.safetyRatings ? responseData.promptFeedback.safetyRatings.map(r => `${r.category}: ${r.probability}`).join(', ') : 'N/A';
+            nlqOutputDiv.innerHTML = outputHtml + `<p style="color: red;">Content blocked by API. Reason: ${blockReason}. Safety Ratings: ${safetyRatings}</p>`;
+            showNotification(`Content blocked: ${blockReason}`, nlqSubmitButton.getBoundingClientRect().x, nlqSubmitButton.getBoundingClientRect().bottom + 5, true);
+        } else {
+          nlqOutputDiv.innerHTML = outputHtml + "<p style='color: red;'>Could not extract JSONPath from API response structure.</p>";
+          console.error('Unexpected NLQ API response JSON structure:', responseData);
+        }
+      } catch (parseError) {
+        console.error('Error parsing NLQ API response JSON:', parseError);
+        nlqOutputDiv.innerHTML = outputHtml + `<p style="color: red;">Error: Failed to parse API response as JSON. Raw response: ${responseText.substring(0, 500)}...</p>`;
+        showNotification("Error: Invalid JSON response from API.", nlqSubmitButton.getBoundingClientRect().x, nlqSubmitButton.getBoundingClientRect().bottom + 5, true);
+      }
+
+    } catch (error) {
+      console.error('Error during NLQ fetch operation:', error);
+      nlqOutputDiv.innerHTML = `<p style="color: red;">Network or fetch error: ${error.message}</p>`; // Keep potential truncation notice
+      showNotification(`Network error: ${error.message}`, nlqSubmitButton.getBoundingClientRect().x, nlqSubmitButton.getBoundingClientRect().bottom + 5, true);
+    } finally {
+      nlqSubmitButton.disabled = false;
+      nlqInput.disabled = false;
+      const spinner = nlqOutputDiv.querySelector('.loading-spinner');
+      if (spinner) spinner.remove();
+    }
+  }
+  
   // Placeholder AI Handlers - Will be updated to use stored API key/model
-  if(nlqSubmitButton && nlqInput) nlqSubmitButton.addEventListener('click', () => {
-    console.log('NLQ submitted. Query:', nlqInput.value, 'API Key:', settingApiKeyInput.value, 'Model:', settingModelSelect.value);
-    if(nlqOutputDiv) nlqOutputDiv.textContent = "Querying (placeholder)...";
-  });
+  if(nlqSubmitButton && nlqInput) {
+    nlqSubmitButton.addEventListener('click', handleNlqSubmit);
+    nlqInput.addEventListener('keyup', (event) => {
+        if (event.key === 'Enter') {
+            handleNlqSubmit();
+        }
+    });
+  }
   if(inferSchemaButton) inferSchemaButton.addEventListener('click', () => {
-    console.log('Infer Schema clicked. API Key:', settingApiKeyInput.value, 'Model:', settingModelSelect.value);
-    if(schemaOutputDiv) schemaOutputDiv.textContent = "Inferring schema (placeholder)...";
+    // console.log('Infer Schema clicked. API Key:', settingApiKeyInput.value, 'Model:', settingModelSelect.value);
+    // if(schemaOutputDiv) schemaOutputDiv.textContent = "Inferring schema (placeholder)...";
   });
+
+  async function handleInferSchema() {
+    const apiKey = settingApiKeyInput.value.trim();
+    const selectedModel = settingModelSelect.value;
+
+    if (!apiKey) {
+      showNotification("API Key is required for AI features. Please set it in Settings.", inferSchemaButton.getBoundingClientRect().x, inferSchemaButton.getBoundingClientRect().bottom + 5, true);
+      return;
+    }
+    if (!currentJsonData) {
+      schemaOutputDiv.textContent = "No JSON data loaded to infer schema from.";
+      return;
+    }
+
+    schemaOutputDiv.innerHTML = `Inferring schema with ${selectedModel}... <span class="loading-spinner"></span>`;
+    inferSchemaButton.disabled = true;
+
+    try {
+      const fullJsonString = JSON.stringify(currentJsonData);
+      const MAX_JSON_STRING_LENGTH_FOR_SCHEMA = 150000; 
+      let jsonContextString = fullJsonString;
+      let wasTruncated = false;
+      let truncationNoticeForUser = "";
+      let promptContextNote = "";
+
+      if (fullJsonString.length > MAX_JSON_STRING_LENGTH_FOR_SCHEMA) {
+        wasTruncated = true;
+        jsonContextString = fullJsonString.substring(0, MAX_JSON_STRING_LENGTH_FOR_SCHEMA);
+        console.warn(`JSON string truncated for Schema Inference from ${fullJsonString.length} to ${jsonContextString.length} characters.`);
+        promptContextNote = `\n\nNote: The provided JSON data was truncated due to its large size (original length ${fullJsonString.length} characters, truncated to ${jsonContextString.length} characters). Base your schema inference on this partial data.`;
+        truncationNoticeForUser = `<p style="font-style: italic; color: orange; margin-bottom: 10px;">Note: The original JSON was too large and was truncated. The schema is inferred from the initial part of the data (approx. first ${MAX_JSON_STRING_LENGTH_FOR_SCHEMA.toLocaleString()} characters).</p>`;
+      }
+
+      let promptText = "Analyze the following JSON data and provide a concise schema inference. Describe the data types of the fields (e.g., String, Number, Boolean, Array, Object), identify common or important keys, and if possible, suggest if fields seem optional or typically present. ";
+      promptText += "Present the schema in a human-readable, descriptive format. For example, use nested bullet points or a clear, structured textual description. Avoid outputting a formal JSON Schema document unless the JSON structure itself is extremely simple. Focus on understandability.";
+      promptText += promptContextNote; // Add truncation note if applicable
+      promptText += `\n\nJSON Data:\n\`\`\`json\n${jsonContextString}\n\`\`\`\n\nInferred Schema Description:`;
+      
+      const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${selectedModel}:generateContent?key=${apiKey}`;
+      const requestBody = {
+        contents: [{ parts: [{ text: promptText }] }],
+        generationConfig: { temperature: 0.3 }
+      };
+
+      const response = await fetch(apiUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(requestBody)
+      });
+
+      console.log('Schema Inference API Response Status:', response.status, response.statusText);
+      const contentType = response.headers.get('content-type');
+      console.log('Schema Inference API Response Content-Type:', contentType);
+      const responseText = await response.text();
+      console.log('Schema Inference API Raw Response Text:', responseText);
+
+      let outputHtml = "";
+      if (wasTruncated) {
+        outputHtml += truncationNoticeForUser;
+      }
+
+      if (!response.ok) {
+        let errorMsg = `API Error: ${response.status} ${response.statusText}.`;
+        if (responseText) { errorMsg += ` Response: ${responseText.substring(0, 500)}`; }
+        schemaOutputDiv.innerHTML = outputHtml + `<p style="color: red;">${errorMsg}</p>`;
+        showNotification(errorMsg, inferSchemaButton.getBoundingClientRect().x, inferSchemaButton.getBoundingClientRect().bottom + 5, true);
+        return;
+      }
+
+      if (!contentType || !contentType.includes('application/json')) {
+        schemaOutputDiv.innerHTML = outputHtml + `<p style="color: red;">Error: Unexpected content type received from API: ${contentType}. Expected application/json. Response: ${responseText.substring(0,500)}</p>`;
+        showNotification("Error: Response was not JSON.", inferSchemaButton.getBoundingClientRect().x, inferSchemaButton.getBoundingClientRect().bottom + 5, true);
+        return;
+      }
+
+      try {
+        const responseData = JSON.parse(responseText);
+        if (responseData.candidates && responseData.candidates[0] && responseData.candidates[0].content && responseData.candidates[0].content.parts && responseData.candidates[0].content.parts[0]) {
+          const inferredSchemaText = responseData.candidates[0].content.parts[0].text;
+          const preElement = document.createElement('pre');
+          preElement.textContent = inferredSchemaText;
+          schemaOutputDiv.innerHTML = outputHtml; // Add truncation notice first
+          schemaOutputDiv.appendChild(preElement); // Then append the preformatted schema
+        } else if (responseData.promptFeedback && responseData.promptFeedback.blockReason) {
+            const blockReason = responseData.promptFeedback.blockReason;
+            const safetyRatings = responseData.promptFeedback.safetyRatings ? responseData.promptFeedback.safetyRatings.map(r => `${r.category}: ${r.probability}`).join(', ') : 'N/A';
+            schemaOutputDiv.innerHTML = outputHtml + `<p style="color: red;">Content blocked by API. Reason: ${blockReason}. Safety Ratings: ${safetyRatings}</p>`;
+            showNotification(`Content blocked: ${blockReason}`, inferSchemaButton.getBoundingClientRect().x, inferSchemaButton.getBoundingClientRect().bottom + 5, true);
+        } else {
+          schemaOutputDiv.innerHTML = outputHtml + "<p style='color: red;'>Could not extract schema from API response structure.</p>";
+          console.error('Unexpected Schema Inference API response JSON structure:', responseData);
+        }
+      } catch (parseError) {
+        console.error('Error parsing Schema Inference API response JSON:', parseError);
+        schemaOutputDiv.innerHTML = outputHtml + `<p style="color: red;">Error: Failed to parse API response as JSON. Raw response: ${responseText.substring(0, 500)}...</p>`;
+        showNotification("Error: Invalid JSON response from API.", inferSchemaButton.getBoundingClientRect().x, inferSchemaButton.getBoundingClientRect().bottom + 5, true);
+      }
+
+    } catch (error) {
+      console.error('Error during Schema Inference fetch operation:', error);
+      schemaOutputDiv.innerHTML = `<p style="color: red;">Network or fetch error: ${error.message}</p>`; // Keep potential truncation notice
+      showNotification(`Network error: ${error.message}`, inferSchemaButton.getBoundingClientRect().x, inferSchemaButton.getBoundingClientRect().bottom + 5, true);
+    } finally {
+      inferSchemaButton.disabled = false;
+      const spinner = schemaOutputDiv.querySelector('.loading-spinner');
+      if (spinner) spinner.remove();
+    }
+  }
+
+  if(inferSchemaButton) inferSchemaButton.addEventListener('click', handleInferSchema);
+
   if(explainNodeButton) explainNodeButton.addEventListener('click', () => {
     console.log('Explain Node clicked. API Key:', settingApiKeyInput.value, 'Model:', settingModelSelect.value);
     // Actual node selection logic will be needed here
@@ -1359,11 +1649,44 @@ Summary:`;
 
     // Optional: Close popup if user clicks outside of it
     window.addEventListener('click', (event) => {
-      if (event.target === settingsPopup) {
+      if (event.target === settingsPopup) { // Close settings popup
         settingsPopup.style.display = 'none';
+      }
+      if (modelInfoPopup && event.target === modelInfoPopup) { // Close model info popup
+        modelInfoPopup.style.display = 'none';
       }
     });
   } else {
-    console.warn("Settings popup elements not found. Ensure #settings-button, #settings-popup, and #close-settings-popup exist.");
+    console.warn("AI Settings popup elements not found. Ensure #settings-button, #settings-popup, and #close-settings-popup exist.");
   }
+
+  // --- Model Info Popup Logic ---
+  if (viewModelInfoButton && modelInfoPopup && closeModelInfoPopupButton) {
+    viewModelInfoButton.addEventListener('click', (event) => {
+      event.stopPropagation(); // Prevent settings popup from closing if this button is inside it
+      modelInfoPopup.style.display = 'block';
+    });
+
+    closeModelInfoPopupButton.addEventListener('click', () => {
+      modelInfoPopup.style.display = 'none';
+    });
+    // Click outside logic for modelInfoPopup is handled by the window event listener for settingsPopup
+  } else {
+    console.warn("Model info popup elements not found. Ensure #view-model-info-button, #model-info-popup, and #close-model-info-popup exist.");
+  }
+
+  // --- Go to AI Insights Button Logic ---
+  if (gotoAiInsightsButton) {
+    gotoAiInsightsButton.addEventListener('click', () => {
+      const aiFeaturesSection = document.querySelector('.ai-features'); // Corrected to querySelector
+      if (aiFeaturesSection) {
+        aiFeaturesSection.scrollIntoView({ behavior: 'smooth' });
+      } else {
+        console.warn("AI Features section (.ai-features) not found.");
+      }
+    });
+  } else {
+    console.warn("Button with id 'goto-ai-insights-button' not found.");
+  }
+
 });
