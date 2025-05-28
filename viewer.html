@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
+  <meta charset="UTF-8">
   <title>JSON Lens AI Viewer</title>
   <link rel="stylesheet" type="text/css" href="style.css">
 </head>
@@ -15,7 +16,8 @@
     <button id="expand-to-level">Expand to Level</button>
     <input type="text" id="jump-to-path-input" placeholder="JSONPath e.g., $.data[0].name" style="margin-left: 15px; width: 220px;">
     <button id="jump-to-path-button">Jump</button>
-    <button id="settings-button" style="margin-left: 15px;">Settings</button>
+    <button type="button" id="goto-ai-insights-button" style="margin-left: 15px;">Go to AI Insights</button>
+    <button id="settings-button" style="margin-left: 15px;">AI Settings</button>
   </div>
 
   <div id="search-controls">
@@ -41,20 +43,115 @@
   </div>
 
   <div id="settings-popup" class="popup">
-    <h3>Settings</h3>
+    <h3>AI Settings</h3>
     <label for="gemini-api-key">Gemini API Key:</label>
     <input type="text" id="gemini-api-key" placeholder="Enter Gemini API Key">
     <label for="gemini-model">Gemini Model:</label>
     <select id="gemini-model">
-        <option value="gemini-pro">Gemini Pro</option>
-        <option value="gemini-flash">Gemini Flash</option>
+        <option value="gemini-1.5-pro-preview-05-06">Gemini 1.5 Pro Preview (May 2024)</option>
+        <option value="gemini-1.5-flash-preview-05-20">Gemini 1.5 Flash Preview (May 2024)</option>
+        <option value="gemini-pro">Gemini 1.0 Pro</option>
+        <option value="gemini-flash">Gemini 1.0 Flash</option>
+        <option value="gemini-1.5-pro">Gemini 1.5 Pro (Latest)</option>
+        <option value="gemini-1.5-flash">Gemini 1.5 Flash (Latest)</option>
+        <option value="gemma-2b-instruct">Gemma 2B Instruct</option>
+        <option value="gemma-7b-instruct">Gemma 7B Instruct</option>
     </select>
+    <button type="button" id="view-model-info-button" class="info-button" style="margin-left: 10px; font-size: 0.8em; padding: 2px 6px;">View Model Details & Pricing</button>
     <hr>
     <label for="setting-font-size">Font Size (px):</label>
     <input type="number" id="setting-font-size" min="8" max="30" step="1">
     <label for="setting-indent-width">Indentation (px):</label>
     <input type="number" id="setting-indent-width" min="0" max="80" step="2">
     <button id="close-settings-popup">Close</button>
+  </div>
+
+  <div id="model-info-popup" class="popup" style="display:none;">
+    <div class="popup-header">
+      <h3>Gemini & Gemma Model Information</h3>
+      <button type="button" id="close-model-info-popup" class="close-button">&times;</button>
+    </div>
+    <div class="popup-content" id="model-info-table-container">
+      <p>Note: Pricing and context windows are subject to change. Always refer to the official Google Cloud documentation for the latest details. "Tokens" are roughly 4 characters for English text.</p>
+      <table>
+        <thead>
+          <tr>
+            <th>Model Name (Display)</th>
+            <th>Model ID (API)</th>
+            <th>Description</th>
+            <th>Context Window</th>
+            <th>Pricing (Per 1M Chars / 1k Chars Input)</th>
+            <th>Use Case</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Gemini 1.5 Pro Preview</td>
+            <td>gemini-1.5-pro-preview-05-06</td>
+            <td>Latest 1.5 Pro model with long context and improved performance. (Preview)</td>
+            <td>1M tokens (~4M chars)</td>
+            <td>$7 / $0.00175 (up to 128k context); $14 / $0.0035 (over 128k context)</td>
+            <td>Complex reasoning, multimodal, long context tasks</td>
+          </tr>
+          <tr>
+            <td>Gemini 1.5 Flash Preview</td>
+            <td>gemini-1.5-flash-preview-05-20</td>
+            <td>Fastest 1.5 model, optimized for speed and cost. (Preview)</td>
+            <td>1M tokens (~4M chars)</td>
+            <td>$0.7 / $0.000175 (up to 128k context); $1.4 / $0.00035 (over 128k context)</td>
+            <td>High volume, fast, multimodal tasks</td>
+          </tr>
+          <tr>
+            <td>Gemini 1.5 Pro</td>
+            <td>gemini-1.5-pro</td>
+            <td>Latest stable 1.5 Pro model.</td>
+            <td>1M tokens (~4M chars)</td>
+            <td>$7 / $0.00175 (up to 128k context); $14 / $0.0035 (over 128k context)</td>
+            <td>General purpose, complex tasks</td>
+          </tr>
+          <tr>
+            <td>Gemini 1.5 Flash</td>
+            <td>gemini-1.5-flash</td>
+            <td>Latest stable 1.5 Flash model.</td>
+            <td>1M tokens (~4M chars)</td>
+             <td>$0.7 / $0.000175 (up to 128k context); $1.4 / $0.00035 (over 128k context)</td>
+            <td>Speed and cost sensitive tasks</td>
+          </tr>
+           <tr>
+            <td>Gemini 1.0 Pro</td>
+            <td>gemini-pro</td>
+            <td>Older generation, still capable.</td>
+            <td>32k tokens (~128k chars)</td>
+            <td>$0.5 / $0.000125</td>
+            <td>General purpose, text-only</td>
+          </tr>
+          <tr>
+            <td>Gemini 1.0 Flash</td>
+            <td>gemini-flash</td>
+            <td>Older generation, optimized for speed, text-only.</td>
+            <td>32k tokens (~128k chars)</td>
+            <td>(Pricing varies, check docs)</td>
+            <td>Fast, text-only tasks</td>
+          </tr>
+          <tr>
+            <td>Gemma 2B Instruct</td>
+            <td>gemma-2b-instruct</td>
+            <td>Lightweight, instruction-tuned open model by Google.</td>
+            <td>8k tokens (~32k chars)</td>
+            <td>(Typically self-hosted or via Vertex AI - check specific platform)</td>
+            <td>Dialogue, instruction following, code generation</td>
+          </tr>
+          <tr>
+            <td>Gemma 7B Instruct</td>
+            <td>gemma-7b-instruct</td>
+            <td>Larger, instruction-tuned open model by Google.</td>
+            <td>8k tokens (~32k chars)</td>
+            <td>(Typically self-hosted or via Vertex AI - check specific platform)</td>
+            <td>Advanced dialogue, instruction following, code generation</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
   </div>
 
   <div class="container">
