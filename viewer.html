@@ -13,7 +13,31 @@
     <button id="collapse-all">Collapse All</button>
     <input type="number" id="expand-level-input" value="1" min="0" title="Level to expand to" style="width: 40px; margin-left: 10px;">
     <button id="expand-to-level">Expand to Level</button>
-    <button id="settings-button">Settings</button>
+    <input type="text" id="jump-to-path-input" placeholder="JSONPath e.g., $.data[0].name" style="margin-left: 15px; width: 220px;">
+    <button id="jump-to-path-button">Jump</button>
+    <button id="settings-button" style="margin-left: 15px;">Settings</button>
+  </div>
+
+  <div id="search-controls">
+    <input type="text" id="search-term" placeholder="Search JSON...">
+    <div class="search-options-group">
+      <label class="search-label">Type:</label>
+      <label><input type="radio" name="search-type" value="values" id="search-type-values" checked> Values</label>
+      <label><input type="radio" name="search-type" value="keys" id="search-type-keys"> Keys</label>
+      <label><input type="radio" name="search-type" value="both" id="search-type-both"> Both</label>
+    </div>
+    <div class="search-options-group">
+      <label class="search-label">Options:</label>
+      <label><input type="checkbox" id="search-case-sensitive"> Case Sensitive</label>
+      <label><input type="checkbox" id="search-regex"> Use Regex</label>
+      <!-- <label><input type="checkbox" id="filter-to-matches"> Filter view to matches</label> -->
+    </div>
+    <button id="search-button">Search</button>
+    <button id="clear-search-button">Clear</button>
+  </div>
+
+  <div id="breadcrumb-container">
+    <!-- Breadcrumbs will be populated here by viewer.js -->
   </div>
 
   <div id="settings-popup" class="popup">
@@ -25,6 +49,11 @@
         <option value="gemini-pro">Gemini Pro</option>
         <option value="gemini-flash">Gemini Flash</option>
     </select>
+    <hr>
+    <label for="setting-font-size">Font Size (px):</label>
+    <input type="number" id="setting-font-size" min="8" max="30" step="1">
+    <label for="setting-indent-width">Indentation (px):</label>
+    <input type="number" id="setting-indent-width" min="0" max="80" step="2">
     <button id="close-settings-popup">Close</button>
   </div>
 
@@ -39,20 +68,20 @@
     <h3>AI Insights</h3>
     <!-- AI controls (API key and model) are now in the settings popup -->
     <div>
-      <button id="ai-summarize">Summarize JSON</button>
+      <button id="ai-summarize" disabled>Summarize JSON</button>
       <div id="ai-summary-output"></div>
     </div>
     <div>
-      <input type="text" id="nlq-input" placeholder="Ask AI about this JSON...">
-      <button id="nlq-submit">Submit Query</button>
+      <input type="text" id="nlq-input" placeholder="Ask AI about this JSON..." disabled>
+      <button id="nlq-submit" disabled>Submit Query</button>
       <div id="nlq-output"></div>
     </div>
     <div>
-      <button id="ai-infer-schema">Infer Schema</button>
+      <button id="ai-infer-schema" disabled>Infer Schema</button>
       <div id="ai-schema-output"></div>
     </div>
      <div>
-      <button id="ai-explain-node">Explain Selected Node</button>
+      <button id="ai-explain-node" disabled>Explain Selected Node</button>
       <div id="ai-explain-output"></div>
     </div>
   </div>

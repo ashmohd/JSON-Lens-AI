@@ -25,36 +25,36 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     const jsonString = request.jsonString;
     const viewerUrl = chrome.runtime.getURL('viewer.html');
 
-    // Method 1: Pass JSON via URL parameter.
-    // Pros: Simple for smaller JSON.
-    // Cons: URL length limits (around 2MB for Chrome, but can be less).
-    // Consider encoding the JSON string to make it URL-safe.
-    const encodedJson = encodeURIComponent(jsonString);
-    const urlWithJson = `${viewerUrl}?json=${encodedJson}`;
+    // Define a threshold for JSON string length (e.g., 1.5MB)
+    const JSON_LENGTH_THRESHOLD = 1.5 * 1024 * 1024; // 1.5MB
 
-    chrome.tabs.create({ url: urlWithJson }, (tab) => {
-      console.log('viewer.html opened in new tab with JSON data via URL parameter.');
-      sendResponse({ status: "success", tabId: tab.id, method: "URL parameter" });
-    });
+    if (jsonString.length < JSON_LENGTH_THRESHOLD) {
+      // Method 1: Pass JSON via URL parameter for smaller JSON.
+      console.log('Using URL parameter method for JSON data.');
+      const encodedJson = encodeURIComponent(jsonString);
+      const urlWithJson = `${viewerUrl}?json=${encodedJson}`;
 
-    // Method 2: Pass JSON via chrome.storage.local (alternative for large JSON).
-    // Pros: Handles large JSON better.
-    // Cons: Requires cleanup of storage; viewer.js needs to be aware of this method.
-    /*
-    const tempStorageKey = `json_data_for_tab_${Date.now()}`; // Unique key
-    chrome.storage.local.set({ [tempStorageKey]: jsonString }, () => {
-      if (chrome.runtime.lastError) {
-        console.error('Error saving JSON to local storage:', chrome.runtime.lastError);
-        sendResponse({ status: "error", message: "Failed to save JSON to storage" });
-        return;
-      }
-      const urlWithStorageKey = `${viewerUrl}?storageKey=${tempStorageKey}`;
-      chrome.tabs.create({ url: urlWithStorageKey }, (tab) => {
-        console.log('viewer.html opened. JSON stored in local storage with key:', tempStorageKey);
-        sendResponse({ status: "success", tabId: tab.id, method: "chrome.storage.local" });
+      chrome.tabs.create({ url: urlWithJson }, (tab) => {
+        console.log('viewer.html opened in new tab with JSON data via URL parameter.');
+        sendResponse({ status: "success", tabId: tab.id, method: "URL parameter" });
       });
-    });
-    */
+    } else {
+      // Method 2: Pass JSON via chrome.storage.local for larger JSON.
+      console.log('Using chrome.storage.local method for JSON data.');
+      const tempStorageKey = `json_data_for_tab_${Date.now()}`; // Unique key
+      chrome.storage.local.set({ [tempStorageKey]: jsonString }, () => {
+        if (chrome.runtime.lastError) {
+          console.error('Error saving JSON to local storage:', chrome.runtime.lastError);
+          sendResponse({ status: "error", message: "Failed to save JSON to storage", method: "chrome.storage.local" });
+          return;
+        }
+        const urlWithStorageKey = `${viewerUrl}?storageKey=${tempStorageKey}`;
+        chrome.tabs.create({ url: urlWithStorageKey }, (tab) => {
+          console.log('viewer.html opened. JSON stored in local storage with key:', tempStorageKey);
+          sendResponse({ status: "success", tabId: tab.id, method: "chrome.storage.local", storageKey: tempStorageKey });
+        });
+      });
+    }
     return true; // Indicates that the response will be sent asynchronously.
   } else if (request.action === "getStorage") {
     // Example: How other parts of the extension might request stored data

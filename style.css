@@ -138,7 +138,7 @@ body.theme-dark #ai-explain-output {
 .json-array {
   list-style-type: none; /* Remove default bullets */
   margin: 0;             /* Remove default margins */
-  padding-left: 20px;    /* Indentation for nesting levels */
+  padding-left: var(--json-indent-width, 20px); /* Indentation for nesting levels */
   border-left: 1px solid #eee; /* Visual guide for structure (light theme) */
 }
 
@@ -301,4 +301,316 @@ body.theme-dark .popup select {
   display: block !important;
 }
 */
+
+/* --- Copy Utility Styles --- */
+
+/* Common class for all clickable copy elements */
+.json-action-icon, /* For icons like copy-subtree-icon */
+.copyable-key,
+.copyable-value {
+  cursor: pointer;
+  padding: 1px 3px; /* Small padding to make hover/click area slightly larger */
+  border-radius: 3px;
+  transition: background-color 0.2s ease-in-out;
+}
+
+/* Hover effect for light theme */
+.json-action-icon:hover,
+.copyable-key:hover,
+.copyable-value:hover {
+  background-color: #e0e0e0; /* Light grey for hover */
+  text-decoration: none; /* Remove underline if any from browser defaults on hover */
+}
+
+/* Hover effect for dark theme */
+body.theme-dark .json-action-icon:hover,
+body.theme-dark .copyable-key:hover,
+body.theme-dark .copyable-value:hover {
+  background-color: #4a4a4a; /* Darker grey for hover in dark mode */
+}
+
+/* Specific style for the copy subtree icon if needed for alignment or size */
+.copy-subtree-icon {
+  margin-left: 8px; /* Space it out from item count */
+  font-size: 1em;  /* Adjust if icon is too small/large */
+  display: inline-block; /* Allows padding and better control */
+}
+/* Ensure copyable keys and values don't get overly bold from hover if they are already bold */
+.copyable-key:hover {
+    /* font-weight: bold; /* Keys are already bold, so this is not strictly needed unless hover changes it */
+}
+
+/* --- Clipboard Notification Styles --- */
+.clipboard-notification {
+  position: fixed;
+  z-index: 2000; /* High z-index to be on top */
+  padding: 10px 18px;
+  border-radius: 4px;
+  font-size: 14px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  opacity: 1;
+  transition: opacity 0.4s ease-in-out, transform 0.4s ease-in-out;
+  transform: translateY(0); /* Start at final position */
+  /* Default: Success (light theme) */
+  background-color: #28a745; /* Green for success */
+  color: white;
+  border: 1px solid #1e7e34;
+}
+
+body.theme-dark .clipboard-notification {
+  /* Success (dark theme) */
+  background-color: #34c759; /* Brighter green for dark theme */
+  color: black; /* Or a very dark grey for contrast */
+  border: 1px solid #28a745;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+.clipboard-notification.error {
+  /* Error (light theme) */
+  background-color: #dc3545; /* Red for error */
+  color: white;
+  border: 1px solid #bd2130;
+}
+
+body.theme-dark .clipboard-notification.error {
+  /* Error (dark theme) */
+  background-color: #ff453a; /* Brighter red for dark theme */
+  color: white; /* Or a very dark grey for contrast if needed */
+  border: 1px solid #dc3545;
+}
+
+/* For the fade-out animation (if JS changes opacity to 0) */
+.clipboard-notification[style*="opacity: 0"] {
+  transform: translateY(-20px); /* Move up slightly on fade out */
+}
+
+
+/* --- Breadcrumb Navigation Styles --- */
+#breadcrumb-container {
+  padding: 8px 10px;
+  margin-bottom: 10px;
+  background-color: #f0f0f0; /* Light theme background */
+  border-bottom: 1px solid #dcdcdc;
+  font-size: 0.9em;
+  white-space: nowrap; /* Prevent wrapping */
+  overflow-x: auto;    /* Allow horizontal scrolling if too long */
+}
+
+body.theme-dark #breadcrumb-container {
+  background-color: #2c2c2c; /* Dark theme background */
+  border-bottom: 1px solid #444;
+}
+
+.breadcrumb-segment {
+  padding: 2px 4px;
+  border-radius: 3px;
+}
+
+.breadcrumb-link {
+  color: #007bff; /* Standard link color */
+  text-decoration: none;
+  cursor: pointer;
+}
+.breadcrumb-link:hover {
+  text-decoration: underline;
+  background-color: #e0e0e0; /* Light hover for light theme */
+}
+
+body.theme-dark .breadcrumb-link {
+  color: #58a6ff; /* Lighter blue for dark theme */
+}
+body.theme-dark .breadcrumb-link:hover {
+  background-color: #4a4a4a; /* Darker hover for dark theme */
+}
+
+.breadcrumb-current {
+  font-weight: bold;
+  color: #333; /* Current segment color for light theme */
+}
+body.theme-dark .breadcrumb-current {
+  color: #eee; /* Current segment color for dark theme */
+}
+
+.breadcrumb-separator {
+  margin: 0 4px;
+  color: #6c757d; /* Separator color for light theme */
+}
+body.theme-dark .breadcrumb-separator {
+  color: #8b949e; /* Separator color for dark theme */
+}
+
+/* --- Highlight for Expanded Node --- */
+.highlighted-node {
+  /* Directly highlight the container (LI or #json-viewer) */
+  background-color: #fff3cd; /* Light yellow highlight */
+  transition: background-color 0.5s ease-out;
+}
+
+body.theme-dark .highlighted-node {
+  background-color: #5d5323; /* Darker yellow/gold highlight for dark theme */
+}
+
+/* If highlighting should be on the json-entry-header instead: */
+/*
+.highlighted-node > .json-entry-header {
+  background-color: #fff3cd;
+  transition: background-color 0.5s ease-out;
+}
+body.theme-dark .highlighted-node > .json-entry-header {
+  background-color: #5d5323;
+}
+*/
+
+/* --- Search Controls Styles --- */
+#search-controls {
+  padding: 10px;
+  margin-bottom: 10px;
+  background-color: #f9f9f9; /* Light theme background for search controls */
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  display: flex;
+  flex-wrap: wrap; /* Allow items to wrap to next line */
+  align-items: center; /* Align items vertically */
+  gap: 10px; /* Space between items */
+}
+
+body.theme-dark #search-controls {
+  background-color: #2d2d2d; /* Dark theme background for search controls */
+  border-color: #444;
+}
+
+#search-term {
+  padding: 6px 8px;
+  border: 1px solid #ccc;
+  border-radius: 3px;
+  flex-grow: 1; /* Allow search input to take available space */
+  min-width: 200px; /* Minimum width for the search input */
+}
+
+body.theme-dark #search-term {
+  background-color: #3a3a3a;
+  color: #eee;
+  border-color: #555;
+}
+
+.search-options-group {
+  display: flex;
+  align-items: center;
+  gap: 8px; /* Space between labels within a group */
+  padding: 5px;
+  border: 1px solid #e0e0e0;
+  border-radius: 3px;
+}
+body.theme-dark .search-options-group {
+  border-color: #4f4f4f;
+}
+
+
+#search-controls label {
+  font-size: 0.9em;
+  margin-right: 2px; /* Slightly less margin for labels next to inputs */
+  display: flex; /* Align checkbox/radio with text */
+  align-items: center;
+}
+.search-label { /* For "Type:" and "Options:" labels */
+    font-weight: bold;
+    margin-right: 5px;
+}
+
+#search-controls input[type="radio"],
+#search-controls input[type="checkbox"] {
+  margin-right: 4px;
+}
+
+#search-controls button {
+  padding: 6px 12px;
+  /* Uses general button styling from .toolbar button or body button if defined */
+  /* Add specific styling if needed */
+}
+
+/* --- Search Match Highlighting --- */
+.search-match {
+  background-color: #ffe082; /* Yellowish highlight for light theme */
+  color: #333; /* Ensure text is readable */
+  font-weight: bold;
+  border-radius: 2px;
+  padding: 1px 2px; /* Small padding for the highlight itself */
+  /* transition: background-color 0.3s; */ /* Optional: for smooth appearance if added dynamically */
+}
+
+body.theme-dark .search-match {
+  background-color: #b38e47; /* Darker yellow/gold for dark theme */
+  color: #fff; /* Ensure text is readable */
+}
+
+/* Ensure that copy hover doesn't obscure search highlight too much */
+.search-match.copyable-key:hover,
+.search-match.copyable-value:hover {
+    background-color: #ffd147; /* Slightly more intense yellow on hover for light theme */
+}
+body.theme-dark .search-match.copyable-key:hover,
+body.theme-dark .search-match.copyable-value:hover {
+    background-color: #a07d3a; /* Slightly more intense gold on hover for dark theme */
+}
+
+/* --- Jump to Path Styles (in Toolbar) --- */
+.toolbar #jump-to-path-input {
+  padding: 4px 6px; /* Match other toolbar inputs/buttons if they exist, or define */
+  border: 1px solid #aaa; /* Slightly darker border than main toolbar bg */
+  border-radius: 3px;
+  /* width is set inline in HTML, but can be adjusted here if needed */
+}
+
+body.theme-dark .toolbar #jump-to-path-input {
+  background-color: #444; /* Dark background for input */
+  color: #eee; /* Light text */
+  border-color: #666; /* Darker border */
+}
+
+/* General toolbar button styling should apply, but if specific needed: */
+/*
+.toolbar #jump-to-path-button {
+  padding: 4px 8px;
+}
+*/
+
+/* --- Loading Spinner for AI Features --- */
+.loading-spinner {
+  display: inline-block;
+  width: 1em; /* Relative to font size of parent */
+  height: 1em;
+  margin-left: 8px;
+  vertical-align: text-bottom; /* Align with text */
+  border: 2px solid currentColor; /* Use current text color for the spinner track */
+  border-right-color: transparent; /* Hide one segment to create the spinning effect */
+  border-radius: 50%;
+  animation: spin 0.75s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* Specific styling for AI output areas if they don't have enough default styling */
+#ai-summary-output, #nlq-output, #ai-schema-output, #ai-explain-output {
+  background-color: #f9f9f9;
+  border: 1px dashed #ddd;
+  padding: 10px;
+  margin-top: 5px; /* Space above the output */
+  min-height: 30px;
+  white-space: pre-wrap; /* Respect newlines and spaces in AI output */
+  font-size: 0.95em; /* Slightly smaller than main JSON view for distinction */
+  line-height: 1.4;
+}
+
+body.theme-dark #ai-summary-output,
+body.theme-dark #nlq-output,
+body.theme-dark #ai-schema-output,
+body.theme-dark #ai-explain-output {
+  background-color: #2c2c2c;
+  border-color: #444;
+  color: #ccc;
+}
+
 ```
