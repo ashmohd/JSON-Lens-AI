@@ -30,6 +30,11 @@ document.addEventListener('DOMContentLoaded', () => {
   const expandLevelInput = document.getElementById('expand-level-input');
   const expandToLevelButton = document.getElementById('expand-to-level');
 
+  // Settings Popup Elements
+  const settingsButton = document.getElementById('settings-button');
+  const settingsPopup = document.getElementById('settings-popup');
+  const closeSettingsPopupButton = document.getElementById('close-settings-popup');
+
 
   // --- JSON Rendering Functions ---
   function renderJsonNode(data, container, currentLevel = 0) { // Added currentLevel
@@ -144,31 +149,20 @@ document.addEventListener('DOMContentLoaded', () => {
 
           toggler.addEventListener('click', (event) => {
             event.stopPropagation();
-            const parentLiOrContainer = container; // If container is <li> or jsonViewer
-            // We want to collapse the listElement (ul) and the closing bracket
-            // The header (entryHeader) should remain visible.
-            
-            const parentContainer = container; 
+            const parentNodeContainer = container; // `container` is the li or div that holds the header and the list (ul)
 
-            // Check initial collapsed state from class, if any (e.g. for expandToLevel)
-            let isCurrentlyCollapsed = parentContainer.classList.contains('collapsed-node');
-            toggler.textContent = isCurrentlyCollapsed ? '► ' : '▼ ';
+            // Toggle collapsed state
+            if (parentNodeContainer.classList.contains('collapsed-node')) {
+              parentNodeContainer.classList.remove('collapsed-node');
+              toggler.textContent = '▼ '; // Expanded
+            } else {
+              parentNodeContainer.classList.add('collapsed-node');
+              toggler.textContent = '► '; // Collapsed
+            }
+          });
 
-
-            toggler.addEventListener('click', (event) => {
-              event.stopPropagation();
-              const currentlyIsCollapsed = parentContainer.classList.contains('collapsed-node');
-              if (currentlyIsCollapsed) {
-                parentContainer.classList.remove('collapsed-node');
-                toggler.textContent = '▼ ';
-              } else {
-                parentContainer.classList.add('collapsed-node');
-                toggler.textContent = '► ';
-              }
-            });
-            
-            // Children are rendered one level deeper
-            const nextLevel = currentLevel + 1;
+          // Children are rendered one level deeper
+          const nextLevel = currentLevel + 1;
             if (isObject) {
               for (const key in data) {
                 if (data.hasOwnProperty(key)) {
@@ -436,4 +430,24 @@ document.addEventListener('DOMContentLoaded', () => {
   //   }
   // });
   console.log("JSON Lens AI viewer.js loaded and initialized matching example.");
+
+  // --- Settings Popup Logic ---
+  if (settingsButton && settingsPopup && closeSettingsPopupButton) {
+    settingsButton.addEventListener('click', () => {
+      settingsPopup.style.display = 'block';
+    });
+
+    closeSettingsPopupButton.addEventListener('click', () => {
+      settingsPopup.style.display = 'none';
+    });
+
+    // Optional: Close popup if user clicks outside of it
+    window.addEventListener('click', (event) => {
+      if (event.target === settingsPopup) {
+        settingsPopup.style.display = 'none';
+      }
+    });
+  } else {
+    console.warn("Settings popup elements not found. Ensure #settings-button, #settings-popup, and #close-settings-popup exist.");
+  }
 });

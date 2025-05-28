@@ -245,4 +245,60 @@ body.theme-dark .json-item-count {
  content: " ..."; /* Add ellipsis to item count when collapsed */
  /* color: #666; */ /* Or inherit */
 }
+
+/* --- Settings Popup --- */
+.popup {
+  display: none; /* Hidden by default */
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background-color: #fff; /* Light theme popup background */
+  padding: 20px;
+  border: 1px solid #ccc;
+  box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+  z-index: 1000;
+  min-width: 300px; /* Ensure it's not too narrow */
+}
+
+body.theme-dark .popup {
+  background-color: #333; /* Dark theme popup background */
+  color: #eee;
+  border-color: #555;
+}
+
+.popup h3 {
+  margin-top: 0;
+}
+
+.popup label {
+  display: block;
+  margin-top: 10px;
+  margin-bottom: 5px;
+}
+
+.popup input[type="text"],
+.popup select {
+  width: calc(100% - 12px); /* Full width minus padding */
+  padding: 5px;
+  margin-bottom: 10px;
+}
+
+body.theme-dark .popup input[type="text"],
+body.theme-dark .popup select {
+  background-color: #444;
+  color: #eee;
+  border: 1px solid #666;
+}
+
+.popup button {
+  margin-top: 10px;
+  padding: 8px 15px;
+}
+/* Optional: Style for a .visible class if used by JS */
+/*
+.popup.visible {
+  display: block !important;
+}
+*/
 ```

@@ -13,7 +13,21 @@
     <button id="collapse-all">Collapse All</button>
     <input type="number" id="expand-level-input" value="1" min="0" title="Level to expand to" style="width: 40px; margin-left: 10px;">
     <button id="expand-to-level">Expand to Level</button>
+    <button id="settings-button">Settings</button>
   </div>
+
+  <div id="settings-popup" class="popup">
+    <h3>Settings</h3>
+    <label for="gemini-api-key">Gemini API Key:</label>
+    <input type="text" id="gemini-api-key" placeholder="Enter Gemini API Key">
+    <label for="gemini-model">Gemini Model:</label>
+    <select id="gemini-model">
+        <option value="gemini-pro">Gemini Pro</option>
+        <option value="gemini-flash">Gemini Flash</option>
+    </select>
+    <button id="close-settings-popup">Close</button>
+  </div>
+
   <div class="container">
     <div id="error-message" style="display:none; color:red;"></div>
     <div id="json-viewer">
@@ -23,13 +37,7 @@
   </div>
   <div class="ai-features">
     <h3>AI Insights</h3>
-    <div class="ai-controls">
-        <input type="text" id="gemini-api-key" placeholder="Enter Gemini API Key">
-        <select id="gemini-model">
-            <option value="gemini-pro">Gemini Pro</option>
-            <option value="gemini-flash">Gemini Flash</option>
-        </select>
-    </div>
+    <!-- AI controls (API key and model) are now in the settings popup -->
     <div>
       <button id="ai-summarize">Summarize JSON</button>
       <div id="ai-summary-output"></div>
