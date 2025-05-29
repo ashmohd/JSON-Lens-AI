@@ -8,6 +8,11 @@
 <body>
   <div class="toolbar">
     <!-- Controls will go here -->
+    <div class="url-bar-container" style="display: flex; align-items: center; margin-right: 10px;">
+      <label for="json-url-input" style="margin-right: 5px;">JSON URL:</label>
+      <input type="text" id="json-url-input" placeholder="Enter JSON URL or leave blank for current data" style="flex-grow: 1; min-width: 300px;">
+      <button type="button" id="load-json-from-url-button" style="margin-left: 5px;">Load</button>
+    </div>
     <button id="toggle-raw">View Raw</button>
     <button id="theme-toggle">Toggle Theme</button>
     <button id="expand-all">Expand All</button>
@@ -48,10 +53,27 @@
     <input type="text" id="gemini-api-key" placeholder="Enter Gemini API Key">
     <label for="gemini-model">Gemini Model:</label>
     <select id="gemini-model">
-            <option value="gemini-2.5-pro-preview-05-06">Gemini 2.5 pro</option>
-            <option value="gemini-2.0-flash">Gemini 2.0 flash</option>
-            <option value="gemini-2.0-flash-lite">Gemini 2.0 Flash Lite</option>
+            <option value="gemini-1.5-pro-preview-05-06">gemini 2.5 pro</option>
+            <option value="gemini-1.0-flash">gemini 2.0 flash</option>
+            <option value="gemini-1.0-flash-lite">gemini 2.0 flash lite</option>
     </select>
+    <hr>
+    <h4>Manage Custom Models</h4>
+    <div>
+      <label for="custom-model-value">API Model Name/ID:</label>
+      <input type="text" id="custom-model-value" placeholder="e.g., gemini-experimental">
+    </div>
+    <div>
+      <label for="custom-model-name">Display Name:</label>
+      <input type="text" id="custom-model-name" placeholder="e.g., My Custom Gemini">
+    </div>
+    <button type="button" id="add-custom-model-button">Add Custom Model</button>
+    
+    <h4>Saved Custom Models:</h4>
+    <ul id="custom-models-list" style="list-style-type: none; padding-left: 0;">
+      <!-- Custom models will be listed here by JS -->
+      <!-- Example: <li><span>Display Name (api-name)</span> <button class="remove-custom-model" data-value="api-name">Remove</button></li> -->
+    </ul>
     <hr>
     <label for="setting-font-size">Font Size (px):</label>
     <input type="number" id="setting-font-size" min="8" max="30" step="1">
