@@ -2,6 +2,9 @@ document.addEventListener('DOMContentLoaded', () => {
   const jsonViewer = document.getElementById('json-viewer');
   const rawJsonTextarea = document.getElementById('raw-json');
   const toggleRawButton = document.getElementById('toggle-raw');
+  if (!toggleRawButton) {
+    console.error("CRITICAL AT STARTUP: toggleRawButton could not be found immediately after DOMContentLoaded. Check viewer.html for id='toggle-raw'.");
+  }
   const errorMessageDiv = document.getElementById('error-message');
 
   // AI Feature Elements (Inputs are in settings popup, buttons are in AI features section)
@@ -815,7 +818,24 @@ document.addEventListener('DOMContentLoaded', () => {
       rawJsonTextarea.style.display = 'none';
       errorMessageDiv.style.display = 'none';
       isRawView = false;
-      if(toggleRawButton) toggleRawButton.textContent = 'View Raw';
+      
+      let currentToggleRawButton = toggleRawButton; 
+      if (!currentToggleRawButton) {
+          console.error('CRITICAL: global toggleRawButton is null/undefined before setting textContent in displayJSON. Attempting to re-fetch.');
+          currentToggleRawButton = document.getElementById('toggle-raw');
+          if (currentToggleRawButton) {
+              console.log('Successfully re-fetched toggle-raw button in displayJSON.');
+          } else {
+              console.error('CRITICAL: Failed to re-fetch toggle-raw button in displayJSON. The button is truly missing or its ID changed.');
+          }
+      }
+      
+      if (currentToggleRawButton) {
+          currentToggleRawButton.textContent = 'View Raw';
+      } else {
+          console.warn("displayJSON: toggleRawButton not found, cannot set 'View Raw' text.");
+      }
+
     } catch (error) {
       displayError('Error rendering JSON: ' + error.message);
       console.error("Error in displayJSON:", error);
@@ -839,7 +859,23 @@ document.addEventListener('DOMContentLoaded', () => {
     rawJsonTextarea.style.display = 'block';
     errorMessageDiv.style.display = 'none';
     isRawView = true;
-    if(toggleRawButton) toggleRawButton.textContent = 'View Formatted';
+
+    let currentToggleRawButton = toggleRawButton;
+    if (!currentToggleRawButton) {
+        console.error('CRITICAL: global toggleRawButton is null/undefined before setting textContent in displayRaw. Attempting to re-fetch.');
+        currentToggleRawButton = document.getElementById('toggle-raw');
+        if (currentToggleRawButton) {
+            console.log('Successfully re-fetched toggle-raw button in displayRaw.');
+        } else {
+            console.error('CRITICAL: Failed to re-fetch toggle-raw button in displayRaw. The button is truly missing or its ID changed.');
+        }
+    }
+
+    if (currentToggleRawButton) {
+        currentToggleRawButton.textContent = 'View Formatted';
+    } else {
+        console.warn("displayRaw: toggleRawButton not found, cannot set 'View Formatted' text.");
+    }
   }
 
   function displayError(message) {
