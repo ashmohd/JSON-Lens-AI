@@ -1,4 +1,5 @@
 document.addEventListener('DOMContentLoaded', () => {
+  console.log('Diagnostic test: viewer.js DOMContentLoaded start');
   const jsonViewer = document.getElementById('json-viewer');
   const rawJsonTextarea = document.getElementById('raw-json');
   const toggleRawButton = document.getElementById('toggle-raw');
