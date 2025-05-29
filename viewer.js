@@ -36,11 +36,6 @@ document.addEventListener('DOMContentLoaded', () => {
   const closeSettingsPopupButton = document.getElementById('close-settings-popup');
   const breadcrumbContainer = document.getElementById('breadcrumb-container');
 
-  // Model Info Popup Elements
-  const viewModelInfoButton = document.getElementById('view-model-info-button');
-  const modelInfoPopup = document.getElementById('model-info-popup');
-  const closeModelInfoPopupButton = document.getElementById('close-model-info-popup');
-
   // Search Controls
   const searchTermInput = document.getElementById('search-term');
   const searchTypeValuesRadio = document.getElementById('search-type-values');
@@ -64,7 +59,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // Constants for settings
   const DEFAULT_FONT_SIZE = 13;
   const DEFAULT_INDENT_WIDTH = 20; // Default indentation in pixels
-  const DEFAULT_MODEL = 'gemini-1.5-flash'; // Updated Default AI Model
+  const DEFAULT_MODEL = 'gemini-1.0-flash'; // Updated Default AI Model
   const FONT_SIZE_KEY = 'setting_fontSize';
   const INDENT_WIDTH_KEY = 'setting_indentWidth';
   const API_KEY_KEY = 'geminiApiKey'; // Storage key for API Key
@@ -73,11 +68,13 @@ document.addEventListener('DOMContentLoaded', () => {
   // and is generally considered more secure for sensitive user data than chrome.storage.sync.
 
   let currentSearchMatches = []; // To store paths of current search matches
+  let lastSelectedNodePath = null;
+  let lastSelectedDomElement = null;
 
 
   // --- Settings Functionality ---
   function updateAiFeatureAvailability(apiKey) {
-    const aiButtons = [summarizeButton, nlqSubmitButton, inferSchemaButton, explainNodeButton];
+    const aiButtons = [summarizeButton, nlqSubmitButton, inferSchemaButton]; // explainNodeButton handled separately
     const isApiKeyPresent = apiKey && apiKey.trim() !== '';
 
     aiButtons.forEach(button => {
@@ -90,6 +87,21 @@ document.addEventListener('DOMContentLoaded', () => {
         }
       }
     });
+
+    // Handle explainNodeButton separately due to its additional dependency on lastSelectedNodePath
+    if (explainNodeButton) {
+      if (!isApiKeyPresent) {
+        explainNodeButton.disabled = true;
+        explainNodeButton.title = "API Key required for AI features.";
+      } else if (!lastSelectedNodePath) {
+        explainNodeButton.disabled = true;
+        explainNodeButton.title = "Select a JSON node (key or value) to enable explanation.";
+      } else {
+        explainNodeButton.disabled = false;
+        explainNodeButton.title = "";
+      }
+    }
+
     // Also consider nlqInput enabled/disabled state
     if(nlqInput) nlqInput.disabled = !isApiKeyPresent;
   }
@@ -1337,10 +1349,153 @@ Summary:`;
   if(inferSchemaButton) inferSchemaButton.addEventListener('click', handleInferSchema);
 
   if(explainNodeButton) explainNodeButton.addEventListener('click', () => {
-    console.log('Explain Node clicked. API Key:', settingApiKeyInput.value, 'Model:', settingModelSelect.value);
-    // Actual node selection logic will be needed here
-    if(explainOutputDiv) explainOutputDiv.textContent = "Explaining node (placeholder)...";
+    // console.log('Explain Node clicked. API Key:', settingApiKeyInput.value, 'Model:', settingModelSelect.value);
+    // // Actual node selection logic will be needed here
+    // if(explainOutputDiv) explainOutputDiv.textContent = "Explaining node (placeholder)...";
+    handleExplainNode(); // Will be fully implemented in next step
   });
+
+  async function handleExplainNode() {
+    const apiKey = settingApiKeyInput.value.trim();
+    const selectedModel = settingModelSelect.value;
+
+    if (!apiKey) {
+      showNotification("API Key is required. Please set it in Settings.", explainNodeButton.getBoundingClientRect().x, explainNodeButton.getBoundingClientRect().bottom + 5, true);
+      return;
+    }
+    if (!lastSelectedNodePath) {
+      showNotification("Please select a JSON key or value first to explain.", explainNodeButton.getBoundingClientRect().x, explainNodeButton.getBoundingClientRect().bottom + 5, true);
+      return;
+    }
+     if (!currentJsonData) {
+      explainOutputDiv.textContent = "No JSON data loaded."; // Should ideally not happen if a node is selected
+      return;
+    }
+
+    explainOutputDiv.innerHTML = `Explaining node with ${selectedModel}... <span class="loading-spinner"></span>`;
+    explainNodeButton.disabled = true;
+
+    try {
+      const selectedNodeValue = getNodeDataByPath(currentJsonData, lastSelectedNodePath);
+      
+      let contextData = currentJsonData;
+      // Attempt to get parent context for better explanation, fallback to root
+      if (lastSelectedNodePath !== '$') {
+          const lastDotIndex = lastSelectedNodePath.lastIndexOf('.');
+          const lastBracketIndex = lastSelectedNodePath.lastIndexOf('[');
+          const lastSeparatorIndex = Math.max(lastDotIndex, lastBracketIndex);
+
+          if (lastSeparatorIndex > 0) { // if it's not a root-level key/index
+            const parentPath = lastSelectedNodePath.substring(0, lastSeparatorIndex);
+            if (parentPath && parentPath !== '$') {
+                 const parentData = getNodeDataByPath(currentJsonData, parentPath);
+                 if (parentData !== undefined) {
+                    contextData = parentData;
+                 }
+            } else if (parentPath === '$') { // Direct child of root
+                contextData = currentJsonData;
+            }
+          }
+      }
+      
+      const fullContextString = JSON.stringify(contextData, null, 2); // Pretty print for context
+      const MAX_JSON_STRING_LENGTH_FOR_EXPLAIN = 150000;
+      let contextToSend = fullContextString;
+      let wasTruncated = false;
+      let truncationNoticeForUser = "";
+      let originalLength = fullContextString.length;
+
+      if (fullContextString.length > MAX_JSON_STRING_LENGTH_FOR_EXPLAIN) {
+        wasTruncated = true;
+        contextToSend = fullContextString.substring(0, MAX_JSON_STRING_LENGTH_FOR_EXPLAIN);
+        console.warn(`JSON context truncated for Explain Node from ${originalLength} to ${contextToSend.length} characters.`);
+        truncationNoticeForUser = `<p style="font-style: italic; color: orange; margin-bottom: 10px;">Note: The JSON context for the selected node was too large and was truncated. The explanation is based on a partial context (approx. first ${MAX_JSON_STRING_LENGTH_FOR_EXPLAIN.toLocaleString()} characters of the parent/root node).</p>`;
+      }
+
+      let promptText = `Given the following JSON context, explain the likely meaning or purpose of the specified selected node. Focus on its role and significance within this context.`;
+      if (wasTruncated) {
+        promptText += `\n\nNote: The provided JSON context might be truncated. Original length was ${originalLength}, truncated to ${contextToSend.length}.`;
+      }
+      promptText += `\n\nJSON Context:\n\`\`\`json\n${contextToSend}\n\`\`\`\n\nSelected Node Path: "${lastSelectedNodePath}"`;
+
+      const selectedValueString = JSON.stringify(selectedNodeValue);
+      if (typeof selectedNodeValue !== 'object' || selectedNodeValue === null || selectedValueString.length < 200) { // Heuristic for "small"
+          promptText += `\nSelected Node Value: ${selectedValueString}`;
+      } else {
+          promptText += `\nSelected Node is an object or a large array.`;
+      }
+      promptText += `\n\nExplanation:`;
+      
+      const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${selectedModel}:generateContent?key=${apiKey}`;
+      const requestBody = {
+        contents: [{ parts: [{ text: promptText }] }],
+        generationConfig: { temperature: 0.4 }
+      };
+
+      const response = await fetch(apiUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(requestBody)
+      });
+
+      console.log('Explain Node API Response Status:', response.status, response.statusText);
+      const contentType = response.headers.get('content-type');
+      console.log('Explain Node API Response Content-Type:', contentType);
+      const responseText = await response.text();
+      console.log('Explain Node API Raw Response Text:', responseText);
+
+      let outputHtml = "";
+      if (wasTruncated) {
+        outputHtml += truncationNoticeForUser;
+      }
+
+      if (!response.ok) {
+        let errorMsg = `API Error: ${response.status} ${response.statusText}.`;
+        if (responseText) { errorMsg += ` Response: ${responseText.substring(0, 500)}`; }
+        explainOutputDiv.innerHTML = outputHtml + `<p style="color: red;">${errorMsg}</p>`;
+        showNotification(errorMsg, explainNodeButton.getBoundingClientRect().x, explainNodeButton.getBoundingClientRect().bottom + 5, true);
+        return;
+      }
+
+      if (!contentType || !contentType.includes('application/json')) {
+        explainOutputDiv.innerHTML = outputHtml + `<p style="color: red;">Error: Unexpected content type: ${contentType}. Response: ${responseText.substring(0,500)}</p>`;
+        showNotification("Error: Response was not JSON.", explainNodeButton.getBoundingClientRect().x, explainNodeButton.getBoundingClientRect().bottom + 5, true);
+        return;
+      }
+
+      try {
+        const responseData = JSON.parse(responseText);
+        if (responseData.candidates && responseData.candidates[0] && responseData.candidates[0].content && responseData.candidates[0].content.parts && responseData.candidates[0].content.parts[0]) {
+          const explanationText = responseData.candidates[0].content.parts[0].text;
+          const preElement = document.createElement('pre');
+          preElement.textContent = explanationText;
+          explainOutputDiv.innerHTML = outputHtml; 
+          explainOutputDiv.appendChild(preElement);
+        } else if (responseData.promptFeedback && responseData.promptFeedback.blockReason) {
+            const blockReason = responseData.promptFeedback.blockReason;
+            const safetyRatings = responseData.promptFeedback.safetyRatings ? responseData.promptFeedback.safetyRatings.map(r => `${r.category}: ${r.probability}`).join(', ') : 'N/A';
+            explainOutputDiv.innerHTML = outputHtml + `<p style="color: red;">Content blocked. Reason: ${blockReason}. Ratings: ${safetyRatings}</p>`;
+            showNotification(`Content blocked: ${blockReason}`, explainNodeButton.getBoundingClientRect().x, explainNodeButton.getBoundingClientRect().bottom + 5, true);
+        } else {
+          explainOutputDiv.innerHTML = outputHtml + "<p style='color: red;'>Could not extract explanation from API response.</p>";
+          console.error('Unexpected Explain Node API response structure:', responseData);
+        }
+      } catch (parseError) {
+        console.error('Error parsing Explain Node API response JSON:', parseError);
+        explainOutputDiv.innerHTML = outputHtml + `<p style="color: red;">Error parsing API response. Raw: ${responseText.substring(0, 500)}...</p>`;
+        showNotification("Error: Invalid JSON response from API.", explainNodeButton.getBoundingClientRect().x, explainNodeButton.getBoundingClientRect().bottom + 5, true);
+      }
+
+    } catch (error) {
+      console.error('Error during Explain Node fetch operation:', error);
+      explainOutputDiv.innerHTML = `<p style="color: red;">Network or fetch error: ${error.message}</p>`; // Keep potential truncation notice
+      showNotification(`Network error: ${error.message}`, explainNodeButton.getBoundingClientRect().x, explainNodeButton.getBoundingClientRect().bottom + 5, true);
+    } finally {
+      explainNodeButton.disabled = false;
+      const spinner = explainOutputDiv.querySelector('.loading-spinner');
+      if (spinner) spinner.remove();
+    }
+  }
 
   // Event listeners for API Key and Model selection will be added in saveSettings/loadSettings context
 
@@ -1555,42 +1710,51 @@ Summary:`;
       const target = event.target;
       let path, valueToCopy, type;
 
-      if (target.classList.contains('copyable-key')) {
+      let isNodeSelectionTarget = false;
+
+      if (target.classList.contains('copyable-key') || target.classList.contains('copyable-value')) {
+        isNodeSelectionTarget = true;
         path = target.dataset.path;
-        // const keyName = target.dataset.key; // Key name is also available if needed
-        if (path) {
-          valueToCopy = path;
-          type = 'JSONPath';
-          copyToClipboard(valueToCopy, type, event);
-          updateBreadcrumbs(path); // Update breadcrumbs on key click
+
+        if (lastSelectedDomElement) {
+          lastSelectedDomElement.classList.remove('selected-for-ai-explanation');
         }
-        event.stopPropagation();
-      } else if (target.classList.contains('copyable-value')) {
-        path = target.dataset.path;
-        if (path) {
-          const actualNodeData = getNodeDataByPath(currentJsonData, path);
-          if (actualNodeData === undefined && !target.dataset.value) { 
-            showNotification('Cannot copy undefined value.', event.clientX, event.clientY, true);
-            return;
-          }
-          
-          if (typeof actualNodeData === 'string') {
-            valueToCopy = actualNodeData;
-          } else if (actualNodeData === null) {
-            valueToCopy = 'null';
-          } else if (actualNodeData !== undefined && typeof actualNodeData !== 'object') {
-            valueToCopy = String(actualNodeData);
-          } else if (target.dataset.value) { 
-             valueToCopy = target.dataset.value; 
-          } else { 
-            valueToCopy = JSON.stringify(actualNodeData, null, 2); 
-          }
-          type = 'Value';
-          copyToClipboard(valueToCopy, type, event);
-          updateBreadcrumbs(path); // Update breadcrumbs on value click
+        lastSelectedNodePath = path;
+        lastSelectedDomElement = target;
+        target.classList.add('selected-for-ai-explanation');
+        
+        // Update AI button availability (especially for Explain Node)
+        updateAiFeatureAvailability(settingApiKeyInput.value.trim());
+
+        // Existing copy and breadcrumb logic
+        if (target.classList.contains('copyable-key')) {
+            valueToCopy = path; // For keys, copy the path
+            type = 'JSONPath';
+        } else { // copyable-value
+            const actualNodeData = getNodeDataByPath(currentJsonData, path);
+            if (actualNodeData === undefined && !target.dataset.value) { 
+                showNotification('Cannot copy undefined value.', event.clientX, event.clientY, true);
+                return; // Do not proceed with copy or breadcrumb update if value is undefined
+            }
+            if (typeof actualNodeData === 'string') {
+                valueToCopy = actualNodeData;
+            } else if (actualNodeData === null) {
+                valueToCopy = 'null';
+            } else if (actualNodeData !== undefined && typeof actualNodeData !== 'object') {
+                valueToCopy = String(actualNodeData);
+            } else if (target.dataset.value) { 
+                valueToCopy = target.dataset.value; 
+            } else { 
+                valueToCopy = JSON.stringify(actualNodeData, null, 2); 
+            }
+            type = 'Value';
         }
+        copyToClipboard(valueToCopy, type, event);
+        updateBreadcrumbs(path);
         event.stopPropagation();
+
       } else if (target.classList.contains('copy-subtree-icon')) {
+        isNodeSelectionTarget = false; // Copying subtree doesn't select the node for explanation
         path = target.dataset.path;
         if (path) {
           const subTreeData = getNodeDataByPath(currentJsonData, path);
@@ -1652,27 +1816,10 @@ Summary:`;
       if (event.target === settingsPopup) { // Close settings popup
         settingsPopup.style.display = 'none';
       }
-      if (modelInfoPopup && event.target === modelInfoPopup) { // Close model info popup
-        modelInfoPopup.style.display = 'none';
-      }
+      // Removed modelInfoPopup close logic from here
     });
   } else {
     console.warn("AI Settings popup elements not found. Ensure #settings-button, #settings-popup, and #close-settings-popup exist.");
-  }
-
-  // --- Model Info Popup Logic ---
-  if (viewModelInfoButton && modelInfoPopup && closeModelInfoPopupButton) {
-    viewModelInfoButton.addEventListener('click', (event) => {
-      event.stopPropagation(); // Prevent settings popup from closing if this button is inside it
-      modelInfoPopup.style.display = 'block';
-    });
-
-    closeModelInfoPopupButton.addEventListener('click', () => {
-      modelInfoPopup.style.display = 'none';
-    });
-    // Click outside logic for modelInfoPopup is handled by the window event listener for settingsPopup
-  } else {
-    console.warn("Model info popup elements not found. Ensure #view-model-info-button, #model-info-popup, and #close-model-info-popup exist.");
   }
 
   // --- Go to AI Insights Button Logic ---
