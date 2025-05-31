@@ -4,6 +4,10 @@
   "version": "1.0",
   "description": "A Chrome extension to view, understand, and query JSON data with AI-powered insights.",
   "permissions": ["activeTab", "storage", "scripting"],
+  "host_permissions": [
+    "https://*/*",
+    "http://*/*"
+  ],
   "action": {
     "default_popup": "popup.html",
     "default_icon": "icons/icon16.png"
