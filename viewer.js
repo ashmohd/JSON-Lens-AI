@@ -8,6 +8,11 @@ document.addEventListener('DOMContentLoaded', () => {
   }
   const errorMessageDiv = document.getElementById('error-message');
 
+  // Editable URL/Source Bar elements
+  const jsonUrlInput = document.getElementById('json-url-input');
+  const loadJsonFromUrlButton = document.getElementById('load-json-from-url-button');
+  let initialSourceUrl = '';
+
   // AI Feature Elements (Inputs are in settings popup, buttons are in AI features section)
   const settingApiKeyInput = document.getElementById('gemini-api-key'); // Renamed for consistency
   const settingModelSelect = document.getElementById('gemini-model');   // Renamed for consistency
@@ -27,6 +32,99 @@ document.addEventListener('DOMContentLoaded', () => {
   let currentJsonData = null;
   let currentRawJson = "";
   let isRawView = false;
+
+
+  // --- UI Reset Function ---
+  function clearAllOutputsAndState() {
+    if (summaryOutputDiv) summaryOutputDiv.innerHTML = '';
+    if (nlqOutputDiv) nlqOutputDiv.innerHTML = '';
+    if (schemaOutputDiv) schemaOutputDiv.innerHTML = '';
+    if (explainOutputDiv) explainOutputDiv.innerHTML = '';
+
+    if (typeof updateBreadcrumbs === 'function') updateBreadcrumbs('$'); // Reset breadcrumbs
+    if (typeof clearSearchHighlights === 'function') clearSearchHighlights(); // Clear search
+    if (document.getElementById('search-term')) document.getElementById('search-term').value = '';
+
+    if (lastSelectedDomElement) { // Clear "Explain this Node" selection
+        lastSelectedDomElement.classList.remove('selected-for-ai-explanation');
+    }
+    lastSelectedNodePath = null;
+    lastSelectedDomElement = null;
+    if (typeof updateAiFeatureAvailability === 'function' && typeof settingApiKeyInput !== 'undefined' && settingApiKeyInput) {
+        updateAiFeatureAvailability(settingApiKeyInput.value); // Update button states
+    }
+
+    // jsonViewer.innerHTML = ''; // Will be set by loading message or new content
+    if (errorMessageDiv) errorMessageDiv.style.display = 'none'; // Hide error message
+  }
+
+
+  // --- Editable URL Bar Logic ---
+  async function handleLoadJsonFromUrl() {
+    if (!jsonUrlInput || !loadJsonFromUrlButton) {
+        console.error("URL input or load button not found.");
+        return;
+    }
+    const url = jsonUrlInput.value.trim();
+    if (!url) {
+        showNotification("Please enter a URL.", jsonUrlInput.getBoundingClientRect().x, jsonUrlInput.getBoundingClientRect().bottom + 5, true);
+        return;
+    }
+
+    clearAllOutputsAndState();
+    jsonViewer.innerHTML = '<div class="loading-spinner" style="margin: 20px auto;"></div> <p style="text-align: center;">Loading JSON from URL...</p>';
+    rawJsonTextarea.style.display = 'none'; // Hide raw view during load
+    loadJsonFromUrlButton.disabled = true;
+
+    try {
+        const response = await fetch(url); // Direct fetch
+        const responseText = await response.text();
+
+        if (!response.ok) {
+            displayError(`Error fetching URL: ${response.status} ${response.statusText}\nResponse (first 500 chars): ${responseText.substring(0, 500)}`);
+            jsonViewer.innerHTML = ''; // Clear loading message
+            return;
+        }
+        try {
+            const jsonData = JSON.parse(responseText);
+            displayJSON(jsonData);
+            initialSourceUrl = url;
+            jsonUrlInput.value = url;
+            showNotification("JSON loaded successfully from URL.", loadJsonFromUrlButton.getBoundingClientRect().x, loadJsonFromUrlButton.getBoundingClientRect().bottom + 5);
+        } catch (parseError) {
+            displayError(`Error parsing JSON from URL: ${parseError.message}\n\nReceived text (first 500 chars):\n${responseText.substring(0, 500)}`);
+            displayRaw(responseText);
+            jsonViewer.innerHTML = '';
+        }
+    } catch (networkError) {
+        if (networkError instanceof TypeError && networkError.message.toLowerCase().includes('failed to fetch')) {
+             displayError(`Network error (potentially CORS): ${networkError.message}. The extension may need host permissions for this URL (e.g., add "*://your-domain.com/*" or even "*://*/*" to host_permissions in manifest.json), or the server needs to allow cross-origin requests (CORS headers).`);
+        } else {
+            displayError(`Network error fetching URL: ${networkError.message}`);
+        }
+        jsonViewer.innerHTML = '';
+    } finally {
+        loadJsonFromUrlButton.disabled = false;
+        const spinner = jsonViewer.querySelector('.loading-spinner');
+        if (spinner && spinner.parentNode === jsonViewer) {
+             // If error occurred, displayError would have hidden jsonViewer or set its content.
+             // If successful, displayJSON would have set content.
+             // This mainly clears the spinner if an error happened AND displayError didn't hide jsonViewer.
+             if (jsonViewer.innerHTML.includes('loading-spinner')) jsonViewer.innerHTML = '';
+        }
+    }
+  }
+
+  if (loadJsonFromUrlButton) {
+    loadJsonFromUrlButton.addEventListener('click', handleLoadJsonFromUrl);
+  }
+  if (jsonUrlInput) {
+    jsonUrlInput.addEventListener('keypress', (event) => {
+        if (event.key === 'Enter') {
+            handleLoadJsonFromUrl();
+        }
+    });
+  }
 
   // Element Refs for new controls
   const expandAllButton = document.getElementById('expand-all');
@@ -60,7 +158,15 @@ document.addEventListener('DOMContentLoaded', () => {
   const settingFontSizeInput = document.getElementById('setting-font-size');
   const settingIndentWidthInput = document.getElementById('setting-indent-width');
 
+  // User-Defined Models UI elements (from settings popup)
+  const customModelValueInput = document.getElementById('custom-model-value');
+  const customModelNameInput = document.getElementById('custom-model-name');
+  const addCustomModelButton = document.getElementById('add-custom-model-button');
+  const customModelsListUl = document.getElementById('custom-models-list');
+
   // Constants for settings
+  const CUSTOM_MODELS_KEY = 'userCustomModels'; // For chrome.storage.local
+  let userCustomModels = []; // To store loaded custom models
   const DEFAULT_FONT_SIZE = 13;
   const DEFAULT_INDENT_WIDTH = 20; // Default indentation in pixels
   const DEFAULT_MODEL = 'gemini-1.0-flash'; // Updated Default AI Model
@@ -74,7 +180,146 @@ document.addEventListener('DOMContentLoaded', () => {
   let currentSearchMatches = []; // To store paths of current search matches
   let lastSelectedNodePath = null;
   let lastSelectedDomElement = null;
+  const MAX_NODES_PER_EXPANSION_BRANCH = 5000; // Max nodes to render in one branch of an expansion
 
+  // --- Custom Models Functions ---
+  function renderCustomModelsList() {
+    if (!customModelsListUl) return;
+    customModelsListUl.innerHTML = ''; // Clear existing list
+    if (userCustomModels.length === 0) {
+      const li = document.createElement('li');
+      li.innerHTML = '<em>No custom models saved.</em>';
+      customModelsListUl.appendChild(li);
+      return;
+    }
+    userCustomModels.forEach(model => {
+      const li = document.createElement('li');
+      // Escape HTML content for display to prevent XSS if names/values contain HTML
+      const esc = (text) => {
+          const div = document.createElement('div');
+          div.textContent = text;
+          return div.innerHTML;
+      };
+      li.innerHTML = `<div class="custom-model-details"><span class="custom-model-display-name">${esc(model.name)}</span><span class="custom-model-display-value">${esc(model.value)}</span></div> <button type="button" class="remove-custom-model" data-value="${esc(model.value)}">Remove</button>`;
+      customModelsListUl.appendChild(li);
+
+      const removeButton = li.querySelector('.remove-custom-model');
+      if (removeButton) {
+        removeButton.addEventListener('click', () => removeCustomModel(model.value));
+      }
+    });
+  }
+
+  function populateModelDropdown() {
+    if (!settingModelSelect) return;
+    const currentSelectedModel = settingModelSelect.value;
+    settingModelSelect.innerHTML = ''; // Clear existing options
+
+    const defaultModels = [
+        { value: "gemini-1.5-pro-preview-05-06", name: "gemini 2.5 pro" },
+        { value: "gemini-1.0-flash", name: "gemini 2.0 flash" },
+        { value: "gemini-1.0-flash-lite", name: "gemini 2.0 flash lite" }
+    ];
+
+    defaultModels.forEach(model => {
+      const option = document.createElement('option');
+      option.value = model.value;
+      option.textContent = model.name;
+      settingModelSelect.appendChild(option);
+    });
+
+    userCustomModels.forEach(model => {
+      const option = document.createElement('option');
+      option.value = model.value;
+      option.textContent = `${model.name} (custom)`; // Indicate it's a custom model
+      settingModelSelect.appendChild(option);
+    });
+
+    // Try to restore selection
+    settingModelSelect.value = currentSelectedModel;
+    // If the currentSelectedModel was removed or isn't in the new list, value will not be set.
+    // Check if the value was successfully set, otherwise default.
+    if (settingModelSelect.value !== currentSelectedModel) {
+      settingModelSelect.value = DEFAULT_MODEL; // Fallback to default
+    }
+    // No need to call saveSettings() here as this function is typically called during loadSettings or after add/remove
+    // and saveSettings() will be called at the end of those operations if needed.
+  }
+
+  async function addCustomModel() {
+    if (!customModelValueInput || !customModelNameInput) return;
+    const apiValue = customModelValueInput.value.trim();
+    const displayName = customModelNameInput.value.trim();
+
+    if (!apiValue || !displayName) {
+      showNotification("Both API Model Value and Display Name are required.", addCustomModelButton.getBoundingClientRect().x, addCustomModelButton.getBoundingClientRect().bottom + 5, true);
+      return;
+    }
+    if (userCustomModels.some(m => m.value === apiValue)) {
+      showNotification("This API Model Value already exists.", addCustomModelButton.getBoundingClientRect().x, addCustomModelButton.getBoundingClientRect().bottom + 5, true);
+      return;
+    }
+
+    const newModel = { value: apiValue, name: displayName };
+    const updatedModels = [...userCustomModels, newModel]; // Create new array for storage
+
+    if (chrome && chrome.storage && chrome.storage.local) {
+      chrome.storage.local.set({ [CUSTOM_MODELS_KEY]: updatedModels }, () => {
+        if (chrome.runtime.lastError) {
+          console.error('Error saving custom model:', chrome.runtime.lastError);
+          showNotification('Error saving custom model.', addCustomModelButton.getBoundingClientRect().x, addCustomModelButton.getBoundingClientRect().bottom + 5, true);
+        } else {
+          userCustomModels = updatedModels; // Update global variable only on success
+          populateModelDropdown();
+          renderCustomModelsList();
+          customModelValueInput.value = '';
+          customModelNameInput.value = '';
+          showNotification("Custom model added!", addCustomModelButton.getBoundingClientRect().x, addCustomModelButton.getBoundingClientRect().bottom + 5);
+          // Select the newly added model
+          settingModelSelect.value = apiValue;
+          saveSettings(); // Persist the new selection
+        }
+      });
+    } else {
+        console.warn("chrome.storage.local not available. Custom model not saved.");
+        showNotification("Storage not available. Custom model not saved.", addCustomModelButton.getBoundingClientRect().x, addCustomModelButton.getBoundingClientRect().bottom + 5, true);
+    }
+  }
+
+  async function removeCustomModel(apiValueToRemove) {
+    const modelExists = userCustomModels.some(m => m.value === apiValueToRemove);
+    if (!modelExists) {
+        console.warn("Attempted to remove a model that does not exist:", apiValueToRemove);
+        return;
+    }
+
+    const updatedModels = userCustomModels.filter(m => m.value !== apiValueToRemove);
+
+    if (chrome && chrome.storage && chrome.storage.local) {
+      chrome.storage.local.set({ [CUSTOM_MODELS_KEY]: updatedModels }, () => {
+        if (chrome.runtime.lastError) {
+          console.error('Error removing custom model:', chrome.runtime.lastError);
+          showNotification('Error removing custom model.', settingsPopup.getBoundingClientRect().x, settingsPopup.getBoundingClientRect().bottom + 5, true);
+        } else {
+          const currentSelectedModel = settingModelSelect.value;
+          userCustomModels = updatedModels; // Update global variable on success
+
+          populateModelDropdown(); // This will re-populate and might change selection
+          renderCustomModelsList();
+          showNotification("Custom model removed.", settingsPopup.getBoundingClientRect().x, settingsPopup.getBoundingClientRect().bottom + 5);
+
+          // If the removed model was the currently selected one, populateModelDropdown would reset it.
+          // We need to save this potentially changed selection.
+          if (currentSelectedModel === apiValueToRemove || settingModelSelect.value !== currentSelectedModel) {
+            saveSettings();
+          }
+        }
+      });
+    } else {
+        console.warn("chrome.storage.local not available. Custom model not removed from storage.");
+        showNotification("Storage not available. Custom model not removed.", settingsPopup.getBoundingClientRect().x, settingsPopup.getBoundingClientRect().bottom + 5, true);
+    }
+  }
 
   // --- Settings Functionality ---
   function updateAiFeatureAvailability(apiKey) {
@@ -115,7 +360,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (jsonViewer && settings.fontSize) {
       jsonViewer.style.fontSize = `${settings.fontSize}px`;
     }
-    if (settings.indentWidth !== undefined) { 
+    if (settings.indentWidth !== undefined) {
       document.documentElement.style.setProperty('--json-indent-width', `${settings.indentWidth}px`);
     }
     // AI settings are not directly "applied" to view beyond form population and button state
@@ -137,7 +382,7 @@ document.addEventListener('DOMContentLoaded', () => {
       settingIndentWidthInput.value = indentWidth;
       showNotification(`Indentation width reset to default (${indentWidth}px) due to invalid input.`, settingIndentWidthInput.getBoundingClientRect().x, settingIndentWidthInput.getBoundingClientRect().bottom + 5, true);
     }
-    
+
     // AI settings
     const apiKey = settingApiKeyInput ? settingApiKeyInput.value.trim() : '';
     const modelPreference = settingModelSelect ? settingModelSelect.value : DEFAULT_MODEL;
@@ -171,35 +416,48 @@ document.addEventListener('DOMContentLoaded', () => {
       [FONT_SIZE_KEY]: DEFAULT_FONT_SIZE,
       [INDENT_WIDTH_KEY]: DEFAULT_INDENT_WIDTH,
       [API_KEY_KEY]: '', // Default to empty API key
-      [MODEL_PREFERENCE_KEY]: DEFAULT_MODEL
+      [MODEL_PREFERENCE_KEY]: DEFAULT_MODEL,
+      [CUSTOM_MODELS_KEY]: [] // Default for custom models
     };
 
     if (chrome && chrome.storage && chrome.storage.local) {
-        chrome.storage.local.get(defaultValues, (result) => {
+        chrome.storage.local.get(Object.keys(defaultValues), (result) => { // Get all keys
             if (chrome.runtime.lastError) {
                 console.error('Error loading settings:', chrome.runtime.lastError);
                 // Apply all defaults if error
-                if(settingFontSizeInput) settingFontSizeInput.value = DEFAULT_FONT_SIZE;
-                if(settingIndentWidthInput) settingIndentWidthInput.value = DEFAULT_INDENT_WIDTH;
-                if(settingApiKeyInput) settingApiKeyInput.value = '';
-                if(settingModelSelect) settingModelSelect.value = DEFAULT_MODEL;
-                applySettings({ fontSize: DEFAULT_FONT_SIZE, indentWidth: DEFAULT_INDENT_WIDTH });
-                updateAiFeatureAvailability('');
+                if(settingFontSizeInput) settingFontSizeInput.value = defaultValues[FONT_SIZE_KEY];
+                if(settingIndentWidthInput) settingIndentWidthInput.value = defaultValues[INDENT_WIDTH_KEY];
+                if(settingApiKeyInput) settingApiKeyInput.value = defaultValues[API_KEY_KEY];
+
+                userCustomModels = defaultValues[CUSTOM_MODELS_KEY]; // Load default empty array
+                // Model preference needs to be set before populating dropdown
+                if(settingModelSelect) settingModelSelect.value = defaultValues[MODEL_PREFERENCE_KEY];
+                populateModelDropdown(); // Populate dropdown with defaults and empty custom models
+                renderCustomModelsList(); // Render the empty list
+
+                applySettings({ fontSize: defaultValues[FONT_SIZE_KEY], indentWidth: defaultValues[INDENT_WIDTH_KEY] });
+                updateAiFeatureAvailability(defaultValues[API_KEY_KEY]);
                 return;
             }
-            
+
             const loadedSettings = {
-                fontSize: result[FONT_SIZE_KEY],
-                indentWidth: result[INDENT_WIDTH_KEY],
-                apiKey: result[API_KEY_KEY],
-                modelPreference: result[MODEL_PREFERENCE_KEY]
+                fontSize: result[FONT_SIZE_KEY] !== undefined ? result[FONT_SIZE_KEY] : defaultValues[FONT_SIZE_KEY],
+                indentWidth: result[INDENT_WIDTH_KEY] !== undefined ? result[INDENT_WIDTH_KEY] : defaultValues[INDENT_WIDTH_KEY],
+                apiKey: result[API_KEY_KEY] !== undefined ? result[API_KEY_KEY] : defaultValues[API_KEY_KEY],
+                modelPreference: result[MODEL_PREFERENCE_KEY] !== undefined ? result[MODEL_PREFERENCE_KEY] : defaultValues[MODEL_PREFERENCE_KEY],
+                customModels: result[CUSTOM_MODELS_KEY] || defaultValues[CUSTOM_MODELS_KEY]
             };
 
             if(settingFontSizeInput) settingFontSizeInput.value = loadedSettings.fontSize;
             if(settingIndentWidthInput) settingIndentWidthInput.value = loadedSettings.indentWidth;
             if(settingApiKeyInput) settingApiKeyInput.value = loadedSettings.apiKey;
+
+            userCustomModels = loadedSettings.customModels; // Load custom models
+            // Set model preference *before* populating dropdown, so it can try to preserve it
             if(settingModelSelect) settingModelSelect.value = loadedSettings.modelPreference;
-            
+            populateModelDropdown(); // Populate dropdown with defaults and loaded custom models
+            renderCustomModelsList(); // Render the list of custom models
+
             applySettings(loadedSettings); // Apply visual settings
             updateAiFeatureAvailability(loadedSettings.apiKey); // Update AI button states
             console.log('Settings loaded:', loadedSettings);
@@ -207,12 +465,17 @@ document.addEventListener('DOMContentLoaded', () => {
     } else {
         console.warn("chrome.storage.local not available. Applying default settings.");
         // Apply all defaults if storage is not available
-        if(settingFontSizeInput) settingFontSizeInput.value = DEFAULT_FONT_SIZE;
-        if(settingIndentWidthInput) settingIndentWidthInput.value = DEFAULT_INDENT_WIDTH;
-        if(settingApiKeyInput) settingApiKeyInput.value = '';
-        if(settingModelSelect) settingModelSelect.value = DEFAULT_MODEL;
-        applySettings({ fontSize: DEFAULT_FONT_SIZE, indentWidth: DEFAULT_INDENT_WIDTH });
-        updateAiFeatureAvailability('');
+        if(settingFontSizeInput) settingFontSizeInput.value = defaultValues[FONT_SIZE_KEY];
+        if(settingIndentWidthInput) settingIndentWidthInput.value = defaultValues[INDENT_WIDTH_KEY];
+        if(settingApiKeyInput) settingApiKeyInput.value = defaultValues[API_KEY_KEY];
+
+        userCustomModels = defaultValues[CUSTOM_MODELS_KEY];
+        if(settingModelSelect) settingModelSelect.value = defaultValues[MODEL_PREFERENCE_KEY];
+        populateModelDropdown();
+        renderCustomModelsList();
+
+        applySettings({ fontSize: defaultValues[FONT_SIZE_KEY], indentWidth: defaultValues[INDENT_WIDTH_KEY] });
+        updateAiFeatureAvailability(defaultValues[API_KEY_KEY]);
     }
   }
 
@@ -221,6 +484,7 @@ document.addEventListener('DOMContentLoaded', () => {
   if(settingIndentWidthInput) settingIndentWidthInput.addEventListener('change', saveSettings);
   if(settingApiKeyInput) settingApiKeyInput.addEventListener('change', saveSettings);
   if(settingModelSelect) settingModelSelect.addEventListener('change', saveSettings);
+  if(addCustomModelButton) addCustomModelButton.addEventListener('click', addCustomModel);
   // --- End Settings Functionality ---
 
 
@@ -238,7 +502,7 @@ document.addEventListener('DOMContentLoaded', () => {
       showNotification("Invalid JSONPath. Path must start with '$'.", jumpToPathInput.getBoundingClientRect().x, jumpToPathInput.getBoundingClientRect().bottom + 5, true);
       return;
     }
-    
+
     // Check if path exists in currentJsonData using getNodeDataByPath (more robust than just querySelector)
     const targetData = getNodeDataByPath(currentJsonData, pathString);
 
@@ -364,12 +628,12 @@ document.addEventListener('DOMContentLoaded', () => {
         showNotification(`${matchingPaths.length} match(es) found.`, searchTermInput.getBoundingClientRect().x, searchTermInput.getBoundingClientRect().bottom + 5);
     }
   }
-  
+
   function findMatchesRecursive(data, currentPath, searchConfig, matches) {
     if (data === null || typeof data !== 'object') { // Primitives (or null) are handled as values by their parent
       return;
     }
-  
+
     if (Array.isArray(data)) {
       data.forEach((item, index) => {
         const itemPath = `${currentPath}[${index}]`;
@@ -424,7 +688,7 @@ document.addEventListener('DOMContentLoaded', () => {
               }
             }
           }
-  
+
           // Search Values (if the value is primitive)
           const value = data[key];
           if (searchConfig.searchValues) {
@@ -482,10 +746,10 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
     }
-    
+
     currentSearchMatches = []; // Reset matches
     findMatchesRecursive(currentJsonData, '$', searchConfig, currentSearchMatches);
-    
+
     // Remove duplicate paths (e.g. if both key and value match the same term for the same node)
     const uniquePaths = [];
     const seenPaths = new Set();
@@ -539,7 +803,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // Parse path segments: $['key'][0] -> $ , $['key'] , $['key'][0]
     const segments = [];
     segments.push('$'); // Always start with root
-    
+
     let tempPath = '$';
     const pathPartsRegex = /\['([^']+?)'\]|\[(\d+)\]/g;
     let match;
@@ -547,7 +811,7 @@ document.addEventListener('DOMContentLoaded', () => {
         tempPath += match[0];
         segments.push(tempPath);
     }
-    
+
     console.log("Path segments for expansion:", segments);
 
     segments.forEach((segmentPath, index) => {
@@ -555,7 +819,7 @@ document.addEventListener('DOMContentLoaded', () => {
       // For '$', currentElement is already jsonViewer.
       // For subsequent paths, query within jsonViewer.
       const elementToExpand = (segmentPath === '$') ? jsonViewer : jsonViewer.querySelector(`[data-path="${segmentPath}"]`);
-      
+
       if (elementToExpand) {
         // Check if this element is a collapsible container and is collapsed
         // A collapsible container usually has a 'json-entry-header' and a 'json-toggler'
@@ -567,10 +831,10 @@ document.addEventListener('DOMContentLoaded', () => {
           console.log("Expanding node:", segmentPath);
           setNodeExpansion(elementToExpand, false); // setNodeExpansion(container, isCollapsed)
         }
-        
+
         // Update currentElement for the next iteration if needed, or for final scroll
-        currentElement = elementToExpand; 
-        
+        currentElement = elementToExpand;
+
         // If it's the last segment, scroll it into view
         if (index === segments.length - 1) {
           console.log("Scrolling to final element of path:", segmentPath, currentElement);
@@ -584,7 +848,7 @@ document.addEventListener('DOMContentLoaded', () => {
       } else {
         console.warn("Could not find element for path segment:", segmentPath);
         // Stop further expansion if a segment is not found
-        return; 
+        return;
       }
     });
   }
@@ -625,7 +889,7 @@ document.addEventListener('DOMContentLoaded', () => {
         } else { // Is an object key
             segmentName = segmentName.replace(/\\'/g, "'"); // Unescape quotes
         }
-        
+
         builtPath += part;
 
         const segmentSpan = document.createElement('span');
@@ -641,7 +905,7 @@ document.addEventListener('DOMContentLoaded', () => {
         breadcrumbContainer.appendChild(segmentSpan);
       });
     }
-    
+
     // Add click listeners to newly created breadcrumb links
     breadcrumbContainer.querySelectorAll('.breadcrumb-link').forEach(link => {
       link.addEventListener('click', (event) => {
@@ -656,9 +920,29 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
   // --- JSON Rendering Functions ---
-  function renderJsonNode(data, container, currentLevel = 0, currentPath = '$') {
+  // PERFORMANCE NOTE:
+  // The current recursive rendering approach directly manipulates the DOM for each node.
+  // For extremely large JSON documents (e.g., tens of thousands of nodes or very deep nesting),
+  // this can lead to slow initial rendering, high memory usage, and browser sluggishness,
+  // especially during operations like "Expand All" or expanding a very large individual array/object.
+  // Future optimizations for handling such extreme cases could include:
+  // 1. Virtual Scrolling: Only rendering the DOM elements currently visible in the viewport.
+  // 2. Incremental Rendering: Rendering chunks of the JSON progressively.
+  // 3. Web Workers: Offloading parsing/processing for very large structures (though DOM manipulation must stay on main thread).
+  // The "Max Nodes Rendered" safeguard below provides a basic mechanism to prevent browser freezes
+  // when expanding a single, massive array or object.
+  function renderJsonNode(data, container, currentLevel = 0, currentPath = '$', currentRenderCount = { count: 0 }) {
     container.dataset.level = currentLevel;
     container.dataset.path = currentPath; // Set path for the container itself
+
+    currentRenderCount.count++;
+    if (currentRenderCount.count > MAX_NODES_PER_EXPANSION_BRANCH) {
+      const li = document.createElement('li'); // Or span, depending on context. Li is good for lists.
+      li.className = 'performance-truncation-message';
+      li.textContent = `[... further content truncated for performance (limit of ${MAX_NODES_PER_EXPANSION_BRANCH} nodes in this branch)]`;
+      container.appendChild(li);
+      return;
+    }
 
     if (data === null) {
       const el = document.createElement('span');
@@ -737,7 +1021,7 @@ document.addEventListener('DOMContentLoaded', () => {
         copySubtreeIcon.title = `Copy subtree (Path: ${currentPath})`;
         copySubtreeIcon.dataset.path = currentPath; // Store path for subtree
         entryHeader.appendChild(copySubtreeIcon);
-        
+
         container.appendChild(entryHeader);
 
         const listElement = document.createElement('ul');
@@ -757,19 +1041,39 @@ document.addEventListener('DOMContentLoaded', () => {
               keySpan.dataset.key = key;
               keySpan.dataset.path = itemPath; // Path for the key itself
               li.appendChild(keySpan);
-              
-              renderJsonNode(data[key], li, currentLevel + 1, itemPath);
+
+              renderJsonNode(data[key], li, currentLevel + 1, itemPath, currentRenderCount);
               listElement.appendChild(li);
+              if (currentRenderCount.count > MAX_NODES_PER_EXPANSION_BRANCH && listElement.lastChild === li) {
+                // If limit was reached *during* this child's rendering, stop adding more items to this list.
+                return;
+              }
             }
           }
         } else { // Array
           data.forEach((item, index) => {
+            if (currentRenderCount.count > MAX_NODES_PER_EXPANSION_BRANCH) {
+              // Check before creating and appending the list item for this element.
+              // If already over limit from previous siblings, add truncation message once.
+              if (!listElement.querySelector('.performance-truncation-message')) {
+                  const liTruncated = document.createElement('li');
+                  liTruncated.className = 'performance-truncation-message';
+                  liTruncated.textContent = `[... further items in array truncated (limit of ${MAX_NODES_PER_EXPANSION_BRANCH} nodes reached)]`;
+                  listElement.appendChild(liTruncated);
+              }
+              return; // Stop processing more items for this array
+            }
             const li = document.createElement('li');
             const itemPath = `${currentPath}[${index}]`;
             li.dataset.path = itemPath; // Path for the item
 
-            renderJsonNode(item, li, currentLevel + 1, itemPath);
+            renderJsonNode(item, li, currentLevel + 1, itemPath, currentRenderCount);
             listElement.appendChild(li);
+            if (currentRenderCount.count > MAX_NODES_PER_EXPANSION_BRANCH && listElement.lastChild === li) {
+               // If limit was hit *within* this child, no need to add more items to this list.
+               // The truncation message would be inside the child 'li' or this loop will add one if next item pushes over.
+               return;
+            }
           });
         }
         container.appendChild(listElement);
@@ -808,9 +1112,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
       jsonViewer.innerHTML = '';
       if (typeof jsonData === 'object' && jsonData !== null) {
-        renderJsonNode(jsonData, jsonViewer, 0, '$');
+        renderJsonNode(jsonData, jsonViewer, 0, '$', { count: 0 });
       } else {
-        renderJsonNode(jsonData, jsonViewer, 0, '$');
+        // For primitive types at the root, the counter is less critical but pass for consistency
+        renderJsonNode(jsonData, jsonViewer, 0, '$', { count: 0 });
       }
       updateBreadcrumbs('$'); // Initial breadcrumb for root
       
@@ -819,8 +1124,8 @@ document.addEventListener('DOMContentLoaded', () => {
       rawJsonTextarea.style.display = 'none';
       errorMessageDiv.style.display = 'none';
       isRawView = false;
-      
-      let currentToggleRawButton = toggleRawButton; 
+
+      let currentToggleRawButton = toggleRawButton;
       if (!currentToggleRawButton) {
           console.error('CRITICAL: global toggleRawButton is null/undefined before setting textContent in displayJSON. Attempting to re-fetch.');
           currentToggleRawButton = document.getElementById('toggle-raw');
@@ -830,7 +1135,7 @@ document.addEventListener('DOMContentLoaded', () => {
               console.error('CRITICAL: Failed to re-fetch toggle-raw button in displayJSON. The button is truly missing or its ID changed.');
           }
       }
-      
+
       if (currentToggleRawButton) {
           currentToggleRawButton.textContent = 'View Raw';
       } else {
@@ -1026,15 +1331,15 @@ document.addEventListener('DOMContentLoaded', () => {
         wasTruncated = true;
         jsonToSend = fullJsonString.substring(0, MAX_JSON_STRING_LENGTH_FOR_SUMMARY);
         console.warn(`JSON string truncated for summarization from ${fullJsonString.length} to ${jsonToSend.length} characters.`);
-        
+
         promptPrefix = `Note: The following JSON data has been truncated due to its large size (original length ${fullJsonString.length} characters, truncated to ${jsonToSend.length} characters). Please provide a summary based on this partial data. `;
-        
+
         truncationNoticeForUser = `<p style="font-style: italic; color: orange; margin-bottom: 10px;">Note: The original JSON was too large and was truncated before summarization. The summary is based on the initial part of the data (approx. first ${MAX_JSON_STRING_LENGTH_FOR_SUMMARY.toLocaleString()} characters).</p>`;
       }
       // TODO: Implement more sophisticated truncation/sampling for very large JSON (e.g., structural sampling) if this basic truncation isn't sufficient.
 
 
-      const promptText = `${promptPrefix}Please provide a concise summary of the following JSON data. Describe its main purpose, overall structure, and identify any key entities or important fields. JSON data: 
+      const promptText = `${promptPrefix}Please provide a concise summary of the following JSON data. Describe its main purpose, overall structure, and identify any key entities or important fields. JSON data:
 
 \`\`\`json
 ${jsonToSend}
@@ -1043,7 +1348,7 @@ ${jsonToSend}
 Summary:`;
 
       const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${selectedModel}:generateContent?key=${apiKey}`;
-      
+
       const requestBody = {
         contents: [{ parts: [{ text: promptText }] }],
         // Optional: Add generationConfig if needed (e.g., temperature, maxOutputTokens)
@@ -1074,7 +1379,7 @@ Summary:`;
         summaryOutputDiv.textContent = errorMsg;
         showNotification(errorMsg, summarizeButton.getBoundingClientRect().x, summarizeButton.getBoundingClientRect().bottom + 5, true);
         // No need to throw here, finally block will handle UI reset
-        return; 
+        return;
       }
 
       if (!contentType || !contentType.includes('application/json')) {
@@ -1126,7 +1431,7 @@ Summary:`;
   }
 
   if(summarizeButton) summarizeButton.addEventListener('click', handleSummarizeJson);
-  
+
   async function handleNlqSubmit() {
     const apiKey = settingApiKeyInput.value.trim();
     const selectedModel = settingModelSelect.value;
@@ -1170,12 +1475,12 @@ Summary:`;
       promptText += "If you cannot determine a valid JSONPath from the query, or if the query is too ambiguous, return the exact string 'INVALID_PATH'.";
       promptText += promptContextNote; // Add truncation note if applicable
       promptText += `\n\nJSON Data:\n\`\`\`json\n${jsonContextString}\n\`\`\`\n\nNatural Language Query: "${nlqQuery}"\n\nJSONPath:`;
-      
+
       const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${selectedModel}:generateContent?key=${apiKey}`;
       const requestBody = {
         contents: [{ parts: [{ text: promptText }] }],
         generationConfig: { // More deterministic output for JSONPath
-          temperature: 0.1, 
+          temperature: 0.1,
         }
       };
 
@@ -1260,7 +1565,7 @@ Summary:`;
       if (spinner) spinner.remove();
     }
   }
-  
+
   // Placeholder AI Handlers - Will be updated to use stored API key/model
   if(nlqSubmitButton && nlqInput) {
     nlqSubmitButton.addEventListener('click', handleNlqSubmit);
@@ -1293,7 +1598,7 @@ Summary:`;
 
     try {
       const fullJsonString = JSON.stringify(currentJsonData);
-      const MAX_JSON_STRING_LENGTH_FOR_SCHEMA = 150000; 
+      const MAX_JSON_STRING_LENGTH_FOR_SCHEMA = 150000;
       let jsonContextString = fullJsonString;
       let wasTruncated = false;
       let truncationNoticeForUser = "";
@@ -1311,7 +1616,7 @@ Summary:`;
       promptText += "Present the schema in a human-readable, descriptive format. For example, use nested bullet points or a clear, structured textual description. Avoid outputting a formal JSON Schema document unless the JSON structure itself is extremely simple. Focus on understandability.";
       promptText += promptContextNote; // Add truncation note if applicable
       promptText += `\n\nJSON Data:\n\`\`\`json\n${jsonContextString}\n\`\`\`\n\nInferred Schema Description:`;
-      
+
       const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${selectedModel}:generateContent?key=${apiKey}`;
       const requestBody = {
         contents: [{ parts: [{ text: promptText }] }],
@@ -1414,7 +1719,7 @@ Summary:`;
 
     try {
       const selectedNodeValue = getNodeDataByPath(currentJsonData, lastSelectedNodePath);
-      
+
       let contextData = currentJsonData;
       // Attempt to get parent context for better explanation, fallback to root
       if (lastSelectedNodePath !== '$') {
@@ -1434,7 +1739,7 @@ Summary:`;
             }
           }
       }
-      
+
       const fullContextString = JSON.stringify(contextData, null, 2); // Pretty print for context
       const MAX_JSON_STRING_LENGTH_FOR_EXPLAIN = 150000;
       let contextToSend = fullContextString;
@@ -1462,7 +1767,7 @@ Summary:`;
           promptText += `\nSelected Node is an object or a large array.`;
       }
       promptText += `\n\nExplanation:`;
-      
+
       const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${selectedModel}:generateContent?key=${apiKey}`;
       const requestBody = {
         contents: [{ parts: [{ text: promptText }] }],
@@ -1506,7 +1811,7 @@ Summary:`;
           const explanationText = responseData.candidates[0].content.parts[0].text;
           const preElement = document.createElement('pre');
           preElement.textContent = explanationText;
-          explainOutputDiv.innerHTML = outputHtml; 
+          explainOutputDiv.innerHTML = outputHtml;
           explainOutputDiv.appendChild(preElement);
         } else if (responseData.promptFeedback && responseData.promptFeedback.blockReason) {
             const blockReason = responseData.promptFeedback.blockReason;
@@ -1573,13 +1878,13 @@ Summary:`;
     notification.style.boxShadow = '0 2px 5px rgba(0,0,0,0.2)';
     notification.style.transition = 'opacity 0.5s ease-out'; // For fade out
     notification.textContent = message;
-    
+
     document.body.appendChild(notification);
 
     // Position near cursor or center if no cursor info, adjust if too close to edge
     const { innerWidth, innerHeight } = window;
     const notifRect = notification.getBoundingClientRect();
-    
+
     let top = y + 20; // Offset from cursor
     let left = x + 20;
 
@@ -1592,7 +1897,7 @@ Summary:`;
         top = y - notifRect.height - 20;
         if (top < 20) top = 20; // Prevent going off-screen top
     }
-    
+
     notification.style.left = `${Math.max(10, left)}px`;
     notification.style.top = `${Math.max(10, top)}px`;
 
@@ -1616,7 +1921,7 @@ Summary:`;
       let current = jsonData;
       // Improved regex to handle various key types and array indices
       const segments = path.match(/\['([^']+?)'\]|\[(\d+)\]/g);
-      
+
       if (!segments && path !== '$') { // Path is not root and not parsable by regex (e.g. simple '$')
           console.warn(`Invalid or non-standard path format for non-root: ${path}`);
           return undefined;
@@ -1665,6 +1970,20 @@ Summary:`;
     const urlParams = new URLSearchParams(window.location.search);
     const storageKey = urlParams.get('storageKey');
     const jsonParam = urlParams.get('json');
+    const sourceUrlParam = urlParams.get('sourceUrl');
+
+    if (jsonUrlInput && sourceUrlParam) {
+        try {
+            initialSourceUrl = decodeURIComponent(sourceUrlParam);
+            jsonUrlInput.value = initialSourceUrl;
+        } catch (e) {
+            console.error("Error decoding sourceUrl:", e);
+            jsonUrlInput.value = "Error decoding source URL";
+        }
+    } else if (jsonUrlInput) {
+        jsonUrlInput.value = ''; // Clear if no source URL
+    }
+
 
     if (storageKey) {
       console.log('Attempting to load JSON from chrome.storage.local with key:', storageKey);
@@ -1759,7 +2078,7 @@ Summary:`;
         lastSelectedNodePath = path;
         lastSelectedDomElement = target;
         target.classList.add('selected-for-ai-explanation');
-        
+
         // Update AI button availability (especially for Explain Node)
         updateAiFeatureAvailability(settingApiKeyInput.value.trim());
 
@@ -1769,7 +2088,7 @@ Summary:`;
             type = 'JSONPath';
         } else { // copyable-value
             const actualNodeData = getNodeDataByPath(currentJsonData, path);
-            if (actualNodeData === undefined && !target.dataset.value) { 
+            if (actualNodeData === undefined && !target.dataset.value) {
                 showNotification('Cannot copy undefined value.', event.clientX, event.clientY, true);
                 return; // Do not proceed with copy or breadcrumb update if value is undefined
             }
@@ -1779,10 +2098,10 @@ Summary:`;
                 valueToCopy = 'null';
             } else if (actualNodeData !== undefined && typeof actualNodeData !== 'object') {
                 valueToCopy = String(actualNodeData);
-            } else if (target.dataset.value) { 
-                valueToCopy = target.dataset.value; 
-            } else { 
-                valueToCopy = JSON.stringify(actualNodeData, null, 2); 
+            } else if (target.dataset.value) {
+                valueToCopy = target.dataset.value;
+            } else {
+                valueToCopy = JSON.stringify(actualNodeData, null, 2);
             }
             type = 'Value';
         }

@@ -32,10 +32,14 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       // Method 1: Pass JSON via URL parameter for smaller JSON.
       console.log('Using URL parameter method for JSON data.');
       const encodedJson = encodeURIComponent(jsonString);
-      const urlWithJson = `${viewerUrl}?json=${encodedJson}`;
+      let viewerTargetUrl = `${viewerUrl}?json=${encodedJson}`;
 
-      chrome.tabs.create({ url: urlWithJson }, (tab) => {
-        console.log('viewer.html opened in new tab with JSON data via URL parameter.');
+      if (sender.tab && sender.tab.url && (sender.tab.url.startsWith('http:') || sender.tab.url.startsWith('https:') || sender.tab.url.startsWith('file:'))) {
+        viewerTargetUrl += `&sourceUrl=${encodeURIComponent(sender.tab.url)}`;
+      }
+
+      chrome.tabs.create({ url: viewerTargetUrl }, (tab) => {
+        console.log('viewer.html opened in new tab with JSON data via URL parameter and sourceUrl.');
         sendResponse({ status: "success", tabId: tab.id, method: "URL parameter" });
       });
     } else {
@@ -48,9 +52,12 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
           sendResponse({ status: "error", message: "Failed to save JSON to storage", method: "chrome.storage.local" });
           return;
         }
-        const urlWithStorageKey = `${viewerUrl}?storageKey=${tempStorageKey}`;
-        chrome.tabs.create({ url: urlWithStorageKey }, (tab) => {
-          console.log('viewer.html opened. JSON stored in local storage with key:', tempStorageKey);
+        let viewerTargetUrl = `${viewerUrl}?storageKey=${tempStorageKey}`;
+        if (sender.tab && sender.tab.url && (sender.tab.url.startsWith('http:') || sender.tab.url.startsWith('https:') || sender.tab.url.startsWith('file:'))) {
+           viewerTargetUrl += `&sourceUrl=${encodeURIComponent(sender.tab.url)}`;
+        }
+        chrome.tabs.create({ url: viewerTargetUrl }, (tab) => {
+          console.log('viewer.html opened. JSON stored in local storage with key:', tempStorageKey, 'and sourceUrl.');
           sendResponse({ status: "success", tabId: tab.id, method: "chrome.storage.local", storageKey: tempStorageKey });
         });
       });
