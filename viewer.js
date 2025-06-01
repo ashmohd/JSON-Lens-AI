@@ -2034,21 +2034,18 @@ Summary:`;
         }
       });
     } else if (jsonParam) {
-      console.log('[viewer.js] Received jsonParam from URL (raw, before decode):', jsonParam);
+      // console.log('[viewer.js] Received jsonParam from URL (raw, before decode):', jsonParam); // Kept for now, can be removed later
       console.log('Attempting to load JSON from URL parameter.');
+      console.log('[viewer.js] jsonParam received (will be used directly for JSON.parse):', jsonParam);
       try {
-        console.log('[viewer.js] jsonParam right before decodeURIComponent:', jsonParam);
-        const decodedJson = decodeURIComponent(jsonParam);
-        console.log('[viewer.js] jsonParam after decodeURIComponent:', decodedJson);
-        const jsonData = JSON.parse(decodedJson);
+        // const decodedJson = decodeURIComponent(jsonParam); // REMOVED
+        // console.log('[viewer.js] jsonParam after decodeURIComponent:', decodedJson); // REMOVED
+        const jsonData = JSON.parse(jsonParam); // CHANGED: use jsonParam directly
         displayJSON(jsonData);
       } catch (e) {
         console.error('Error parsing JSON from URL parameter:', e);
-        // Ensure decodedJson is defined in this scope if an error occurs during decodeURIComponent itself
-        // However, the most likely error is JSON.parse, where decodedJson would be available.
-        const decodedContentForError = (typeof decodedJson !== 'undefined') ? decodedJson : jsonParam;
-        console.error('[viewer.js] Content that failed JSON.parse (or was problematic before parse):', decodedContentForError);
-        displayError(`Error parsing JSON from URL: ${e.message}`);
+        console.error('[viewer.js] Content that failed JSON.parse:', jsonParam); // CHANGED: use jsonParam
+        displayError(`Error parsing JSON from URL: ${e.message} (Raw param snippet: ${jsonParam.substring(0,100)}...)`);
       }
     } else {
       console.log('No storageKey or json URL parameter found. Loading sample JSON.');
