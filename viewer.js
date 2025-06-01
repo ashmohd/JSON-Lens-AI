@@ -932,38 +932,48 @@ document.addEventListener('DOMContentLoaded', () => {
   // The "Max Nodes Rendered" safeguard below provides a basic mechanism to prevent browser freezes
   // when expanding a single, massive array or object.
   function renderJsonNode(data, container, currentLevel = 0, currentPath = '$', currentRenderCount = { count: 0 }) {
-    container.dataset.level = currentLevel;
-    container.dataset.path = currentPath; // Set path for the container itself
+    console.log(`[renderJsonNode] Called. Path: ${currentPath}, Level: ${currentLevel}, NodeCount: ${currentRenderCount.count}, Type: ${typeof data}`, data);
+    console.log(`[renderJsonNode] Container element:`, container);
 
-    currentRenderCount.count++;
+    console.log(`[renderJsonNode] Path: ${currentPath}, Current render count before check: ${currentRenderCount.count}`);
+    currentRenderCount.count++; // Increment for the current node itself
     if (currentRenderCount.count > MAX_NODES_PER_EXPANSION_BRANCH) {
-      const li = document.createElement('li'); // Or span, depending on context. Li is good for lists.
+      console.warn(`[renderJsonNode] MAX_NODES_PER_EXPANSION_BRANCH (${MAX_NODES_PER_EXPANSION_BRANCH}) exceeded for path: ${currentPath}. Stopping render for this branch.`);
+      const li = document.createElement('li');
       li.className = 'performance-truncation-message';
       li.textContent = `[... further content truncated for performance (limit of ${MAX_NODES_PER_EXPANSION_BRANCH} nodes in this branch)]`;
+      console.log(`[renderJsonNode] Appending truncation message to:`, container);
       container.appendChild(li);
       return;
     }
 
+    container.dataset.level = currentLevel;
+    container.dataset.path = currentPath;
+
     if (data === null) {
+      console.log(`[renderJsonNode] Path: ${currentPath}, Rendering primitive. Value: null, Appending to:`, container);
       const el = document.createElement('span');
       el.className = 'json-null copyable-value';
       el.textContent = 'null';
       el.dataset.path = currentPath;
       el.dataset.value = 'null';
       container.appendChild(el);
+      console.log(`[renderJsonNode] Exiting for Path: ${currentPath}`);
       return;
     }
 
     switch (typeof data) {
       case 'string':
+        console.log(`[renderJsonNode] Path: ${currentPath}, Rendering primitive. Value: "${data}", Appending to:`, container);
         const strEl = document.createElement('span');
         strEl.className = 'json-string copyable-value';
         strEl.textContent = `"${data}"`;
         strEl.dataset.path = currentPath;
-        strEl.dataset.value = data; // Store raw string
+        strEl.dataset.value = data;
         container.appendChild(strEl);
         break;
       case 'number':
+        console.log(`[renderJsonNode] Path: ${currentPath}, Rendering primitive. Value: ${data}, Appending to:`, container);
         const numEl = document.createElement('span');
         numEl.className = 'json-number copyable-value';
         numEl.textContent = data;
@@ -972,6 +982,7 @@ document.addEventListener('DOMContentLoaded', () => {
         container.appendChild(numEl);
         break;
       case 'boolean':
+        console.log(`[renderJsonNode] Path: ${currentPath}, Rendering primitive. Value: ${data}, Appending to:`, container);
         const boolEl = document.createElement('span');
         boolEl.className = 'json-boolean copyable-value';
         boolEl.textContent = data;
@@ -982,15 +993,16 @@ document.addEventListener('DOMContentLoaded', () => {
       case 'object':
         const isArray = Array.isArray(data);
         const itemCount = isArray ? data.length : Object.keys(data).length;
+        console.log(`[renderJsonNode] Path: ${currentPath}, Rendering as object/array. Item count: ${itemCount}`);
 
         if (itemCount === 0) {
           const emptyText = isArray ? '[]' : '{}';
           const el = document.createElement('span');
           el.className = isArray ? 'json-array' : 'json-object';
           el.textContent = emptyText;
-          el.dataset.path = currentPath; // Path for the empty object/array
-          // el.dataset.value = emptyText; // Or perhaps JSON.stringify(data)
+          el.dataset.path = currentPath;
           container.appendChild(el);
+          console.log(`[renderJsonNode] Exiting for Path: ${currentPath} (empty object/array)`);
           return;
         }
 
@@ -1012,71 +1024,73 @@ document.addEventListener('DOMContentLoaded', () => {
         itemCountSpan.textContent = `(${itemCount} ${isArray ? (itemCount === 1 ? 'item' : 'items') : (itemCount === 1 ? 'property' : 'properties')})`;
         entryHeader.appendChild(itemCountSpan);
 
-        // Add copy subtree icon for non-empty objects/arrays
-        // The 'itemCount > 0' check is already implicitly handled because this part of the code
-        // is only reached if itemCount > 0. If itemCount were 0, it would have returned earlier.
         const copySubtreeIcon = document.createElement('span');
-        copySubtreeIcon.className = 'copy-subtree-icon json-action-icon'; // Added json-action-icon for common styling
-        copySubtreeIcon.textContent = '📋'; // Clipboard icon
+        copySubtreeIcon.className = 'copy-subtree-icon json-action-icon';
+        copySubtreeIcon.textContent = '📋';
         copySubtreeIcon.title = `Copy subtree (Path: ${currentPath})`;
-        copySubtreeIcon.dataset.path = currentPath; // Store path for subtree
+        copySubtreeIcon.dataset.path = currentPath;
         entryHeader.appendChild(copySubtreeIcon);
 
         container.appendChild(entryHeader);
+        console.log(`[renderJsonNode] Path: ${currentPath}, Appended entryHeader to:`, container);
 
         const listElement = document.createElement('ul');
         listElement.className = isArray ? 'json-array' : 'json-object';
-        // listElement.dataset.path = currentPath; // The list itself also represents this path
 
         if (!isArray) { // Object
           for (const key in data) {
             if (data.hasOwnProperty(key)) {
+              const itemPath = `${currentPath}['${key.replace(/'/g, "\\'")}']`;
+              console.log(`[renderJsonNode] Path: ${currentPath}, Iterating. Key: ${key}, Child Path: ${itemPath}`);
               const li = document.createElement('li');
-              const itemPath = `${currentPath}['${key.replace(/'/g, "\\'")}']`; // Handle quotes in key
-              li.dataset.path = itemPath; // Path for the key-value pair's value part
+              console.log(`[renderJsonNode] Created li for key: ${key}, Child Path: ${itemPath}`, li);
+              li.dataset.path = itemPath;
 
               const keySpan = document.createElement('span');
               keySpan.className = 'json-key copyable-key';
               keySpan.textContent = `"${key}": `;
               keySpan.dataset.key = key;
-              keySpan.dataset.path = itemPath; // Path for the key itself
+              keySpan.dataset.path = itemPath;
               li.appendChild(keySpan);
 
+              console.log(`[renderJsonNode] Path: ${currentPath}, BEFORE recursive call for child: ${itemPath}`);
               renderJsonNode(data[key], li, currentLevel + 1, itemPath, currentRenderCount);
               listElement.appendChild(li);
               if (currentRenderCount.count > MAX_NODES_PER_EXPANSION_BRANCH && listElement.lastChild === li) {
-                // If limit was reached *during* this child's rendering, stop adding more items to this list.
+                console.log(`[renderJsonNode] Path: ${currentPath}, MAX_NODES reached while processing object properties. Child Path: ${itemPath}`);
                 return;
               }
             }
           }
         } else { // Array
           data.forEach((item, index) => {
+            const itemPath = `${currentPath}[${index}]`;
+            console.log(`[renderJsonNode] Path: ${currentPath}, Iterating. Index: ${index}, Child Path: ${itemPath}`);
             if (currentRenderCount.count > MAX_NODES_PER_EXPANSION_BRANCH) {
-              // Check before creating and appending the list item for this element.
-              // If already over limit from previous siblings, add truncation message once.
               if (!listElement.querySelector('.performance-truncation-message')) {
                   const liTruncated = document.createElement('li');
                   liTruncated.className = 'performance-truncation-message';
                   liTruncated.textContent = `[... further items in array truncated (limit of ${MAX_NODES_PER_EXPANSION_BRANCH} nodes reached)]`;
                   listElement.appendChild(liTruncated);
+                  console.log(`[renderJsonNode] Path: ${currentPath}, Appended array truncation message.`);
               }
-              return; // Stop processing more items for this array
+              return;
             }
             const li = document.createElement('li');
-            const itemPath = `${currentPath}[${index}]`;
-            li.dataset.path = itemPath; // Path for the item
+            console.log(`[renderJsonNode] Created li for index: ${index}, Child Path: ${itemPath}`, li);
+            li.dataset.path = itemPath;
 
+            console.log(`[renderJsonNode] Path: ${currentPath}, BEFORE recursive call for child: ${itemPath}`);
             renderJsonNode(item, li, currentLevel + 1, itemPath, currentRenderCount);
             listElement.appendChild(li);
             if (currentRenderCount.count > MAX_NODES_PER_EXPANSION_BRANCH && listElement.lastChild === li) {
-               // If limit was hit *within* this child, no need to add more items to this list.
-               // The truncation message would be inside the child 'li' or this loop will add one if next item pushes over.
+               console.log(`[renderJsonNode] Path: ${currentPath}, MAX_NODES reached while processing array items. Child Path: ${itemPath}`);
                return;
             }
           });
         }
         container.appendChild(listElement);
+        console.log(`[renderJsonNode] Path: ${currentPath}, Appended listElement (ul) to:`, container);
 
         const closeBracket = document.createElement('span');
         closeBracket.className = 'json-punctuation';
@@ -1094,15 +1108,14 @@ document.addEventListener('DOMContentLoaded', () => {
             toggler.textContent = '► ';
           }
         });
-        // Note: The recursive calls for children already happened above.
-        // The data-level for children's containers (li) is set in those recursive calls.
-        // The listElement itself doesn't need a specific level, its children (li) do.
         break;
       default:
+        console.log(`[renderJsonNode] Path: ${currentPath}, Rendering as Unknown Type. Value: ${data}, Appending to:`, container);
         const unkEl = document.createElement('span');
         unkEl.textContent = 'Unknown type: ' + typeof data;
         container.appendChild(unkEl);
     }
+    console.log(`[renderJsonNode] Exiting for Path: ${currentPath}`);
   }
 
   function displayJSON(jsonData) {
