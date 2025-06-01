@@ -2034,13 +2034,20 @@ Summary:`;
         }
       });
     } else if (jsonParam) {
+      console.log('[viewer.js] Received jsonParam from URL (raw, before decode):', jsonParam);
       console.log('Attempting to load JSON from URL parameter.');
       try {
+        console.log('[viewer.js] jsonParam right before decodeURIComponent:', jsonParam);
         const decodedJson = decodeURIComponent(jsonParam);
+        console.log('[viewer.js] jsonParam after decodeURIComponent:', decodedJson);
         const jsonData = JSON.parse(decodedJson);
         displayJSON(jsonData);
       } catch (e) {
         console.error('Error parsing JSON from URL parameter:', e);
+        // Ensure decodedJson is defined in this scope if an error occurs during decodeURIComponent itself
+        // However, the most likely error is JSON.parse, where decodedJson would be available.
+        const decodedContentForError = (typeof decodedJson !== 'undefined') ? decodedJson : jsonParam;
+        console.error('[viewer.js] Content that failed JSON.parse (or was problematic before parse):', decodedContentForError);
         displayError(`Error parsing JSON from URL: ${e.message}`);
       }
     } else {

@@ -31,13 +31,17 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     if (jsonString.length < JSON_LENGTH_THRESHOLD) {
       // Method 1: Pass JSON via URL parameter for smaller JSON.
       console.log('Using URL parameter method for JSON data.');
+      console.log('[background.js] JSON content for URL param (raw string before encoding):', jsonString);
+      console.log('[background.js] Type of jsonString:', typeof jsonString);
+      console.log('[background.js] Length of jsonString:', jsonString.length);
       const encodedJson = encodeURIComponent(jsonString);
+      console.log('[background.js] Encoded JSON content for URL param:', encodedJson);
       let viewerTargetUrl = `${viewerUrl}?json=${encodedJson}`;
 
       if (sender.tab && sender.tab.url && (sender.tab.url.startsWith('http:') || sender.tab.url.startsWith('https:') || sender.tab.url.startsWith('file:'))) {
         viewerTargetUrl += `&sourceUrl=${encodeURIComponent(sender.tab.url)}`;
       }
-
+      console.log('[background.js] Final viewerTargetUrl with jsonParam:', viewerTargetUrl);
       chrome.tabs.create({ url: viewerTargetUrl }, (tab) => {
         console.log('viewer.html opened in new tab with JSON data via URL parameter and sourceUrl.');
         sendResponse({ status: "success", tabId: tab.id, method: "URL parameter" });
