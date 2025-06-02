@@ -2077,6 +2077,19 @@ Summary:`;
   loadInitialJson(); // Call the function to load JSON when DOM is ready.
   loadSettings(); // Load and apply settings on startup
 
+  // Display sample JSON only if no other data has been loaded and no error is shown
+  // and jsonViewer is empty (e.g. not even a loading spinner from handleLoadJsonFromUrl)
+  if (jsonViewer.children.length === 0 && (!errorMessageDiv || errorMessageDiv.style.display === 'none')) {
+      console.log('[viewer.js] No JSON loaded from params, storage, or URL bar. Displaying sample JSON.');
+      const sampleJson = {
+        "name": "JSON Lens AI",
+        "version": "1.0",
+        "status": "Development",
+        "message": "This is a sample JSON. Use the URL bar to load a JSON from a URL, or open a JSON page to have it automatically viewed."
+      };
+      displayJSON(sampleJson);
+  }
+
   // --- Event Listener for Copy Actions on JSON Viewer ---
   if (jsonViewer) {
     jsonViewer.addEventListener('click', (event) => {
@@ -2172,7 +2185,7 @@ Summary:`;
   //     return true; // If you might send a response asynchronously
   //   }
   // });
-  console.log("JSON Lens AI viewer.js loaded and initialized matching example.");
+  console.log("JSON Lens AI viewer.js loaded and initialized.");
 
   // --- Settings Popup Logic ---
   if (settingsButton && settingsPopup && closeSettingsPopupButton) {
