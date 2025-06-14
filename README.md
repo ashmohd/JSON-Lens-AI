@@ -131,9 +131,3 @@ Contributions are welcome! If you have suggestions for improvements or want to a
 
 Please provide a clear description of your changes in the pull request.
 
-## License
-
-This project is currently not licensed. Please consider adding a `LICENSE.md` file (e.g., MIT, Apache 2.0, GPL).
-
-Once a license is chosen, this section should be updated to reflect it, for example:
-"This project is licensed under the MIT License - see the `LICENSE.md` file for details."
