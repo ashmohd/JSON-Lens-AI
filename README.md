@@ -1,110 +1,133 @@
-## JSON Lens AI 🚀
+# JSON Lens AI
 
-**JSON Lens AI** is a powerful Chrome Extension designed to help you effortlessly view, understand, and query JSON data. Whether you're a developer debugging APIs, a data analyst exploring datasets, or anyone working with JSON, this tool will streamline your workflow.
-
-**Key Features:**
-
-*   **Advanced JSON Viewing:** Seamlessly switch between raw and beautifully formatted JSON. Toggle themes for optimal readability.
-*   **Effortless Navigation:** Expand and collapse JSON nodes with precision – go all in, or explore level by level. Navigate complex structures with ease using JSONPath.
-*   **Powerful Search:** Quickly find what you need by searching keys, values, or both. Fine-tune your search with case-sensitive and regex options.
-*   **AI-Powered Insights (via Gemini API):**
-    *   **Summarize:** Get quick summaries of your JSON data.
-    *   **Natural Language Querying:** Ask questions about your data in plain English.
-    *   **Schema Inference:** Understand the structure of your JSON at a glance.
-    *   **Node Explanation:** Get clear explanations for specific JSON nodes.
-*   **Highly Customizable:** Tailor JSON Lens AI to your needs. Configure your Gemini API key, choose your preferred AI model (including custom models), and adjust UI settings like font size and indentation.
-
-Dive deeper into your JSON data with AI-enhanced clarity and control!
+A Chrome extension to view, understand, and query JSON data with AI-powered insights.
 
 ## Features
 
-### JSON Viewing
-*   **Raw View:** Display the raw, unformatted JSON string.
-*   **Formatted View:** Pretty-print the JSON for improved readability with collapsible tree structure.
-*   **Theme Toggling:** Switch between different visual themes (e.g., light/dark) for comfortable viewing.
+JSON Lens AI provides a comprehensive suite of tools to enhance your experience with JSON data:
 
-### Navigation
-*   **Expand All:** Fully expand all nodes in the formatted JSON view.
-*   **Collapse All:** Fully collapse all nodes to the root level in the formatted JSON view.
-*   **Expand to Specific Level:** Expand the JSON tree down to a user-defined depth.
-*   **JSONPath Navigation:** Directly jump to a specific node or value within the JSON using a JSONPath expression.
-*   **Breadcrumbs:** Display the path to the currently selected/viewed node, allowing for easy navigation up the JSON tree.
-
-### Search
-*   **Search Term Input:** Text field to enter search queries.
-*   **Search By:**
-    *   Keys: Search only within JSON keys.
-    *   Values: Search only within JSON values.
-    *   Both: Search within both keys and values.
-*   **Search Options:**
-    *   Case Sensitive: Perform a case-sensitive search.
-    *   Regular Expressions (Regex): Use regular expressions for advanced search patterns.
-*   **Clear Search:** Button to clear search results and term.
-    *(Note: `viewer.html` includes a commented-out "Filter view to matches" which could be a potential future feature but isn't explicitly active based on the HTML provided).*
-
-### AI-Powered Insights (via Gemini API)
-*   **Summarize JSON:** Generate a concise summary of the entire JSON object/array.
-*   **Natural Language Querying (NLQ):** Ask questions about the JSON data in plain English and receive AI-generated answers.
-*   **Infer Schema:** Analyze the JSON structure and generate a schema that describes its fields and data types.
-*   **Explain Selected Node:** Provide an AI-generated explanation for a currently selected JSON node or element.
-
-### Customization & Settings
-*   **Gemini API Key Management:** Input and store the user's Gemini API key.
-*   **Gemini Model Selection:**
-    *   Choose from a predefined list of Gemini models.
-    *   Add and manage custom Gemini model names/IDs for users with access to specific or fine-tuned models.
-*   **UI Settings:**
-    *   Font Size: Adjust the font size for the JSON view.
-    *   Indentation Width: Customize the indentation width (e.g., number of spaces or pixels) for the formatted JSON view.
-
-### Other Features
-*   **Load JSON from URL:** Fetch and display JSON data directly from a specified URL.
-*   **Error Display:** Show informative error messages if JSON is invalid, a URL cannot be fetched, or an API call fails.
-*   **View JSON from Active Tab:** (Inferred from `manifest.json` permissions and typical Chrome extension behavior for JSON viewers) - The extension likely automatically detects and allows viewing of JSON content encountered on the current web page or allows manual triggering on the active tab.
+*   **Versatile JSON Viewing:**
+    *   Load and view JSON data directly from URLs or from the currently active tab.
+    *   Switch to a raw, unformatted JSON view when needed.
+*   **Customizable Display:**
+    *   Toggle between light and dark themes for comfortable viewing.
+    *   Expand or collapse all JSON nodes with a single click.
+    *   Precisely control visibility by expanding to a specific nesting level.
+    *   Adjust font size and indentation for optimal readability (configurable in Settings).
+*   **Efficient Navigation:**
+    *   Directly jump to specific parts of the JSON tree using JSONPath expressions.
+    *   Easily understand your current location within the JSON structure with interactive breadcrumbs.
+*   **Powerful Search:**
+    *   Search for specific keys, values, or both within the JSON data.
+    *   Perform case-sensitive searches.
+    *   Utilize regular expressions for complex search patterns.
+*   **AI-Powered Insights (Gemini):**
+    *   **Summarize JSON:** Get a quick overview of the JSON's structure and content.
+    *   **Natural Language Query (NLQ):** Ask questions about your JSON data in plain English.
+    *   **Infer Schema:** Automatically generate a structural schema from the data.
+    *   **Explain Selected Node:** Get a detailed explanation for any specific node within the JSON.
+*   **User Configuration:**
+    *   Securely store your Gemini API key.
+    *   Choose from available Gemini models or add custom ones.
+    *   Manage UI preferences like font size and indentation.
 
 ## Installation
 
-Currently, JSON Lens AI is not yet available on the Chrome Web Store. To install it for development or personal use, you can load it as an unpacked extension:
+To install JSON Lens AI:
 
-1.  **Download the Source Code:** Clone or download the project repository from GitHub to your local machine.
-2.  **Open Chrome Extensions Page:** Open Google Chrome, type `chrome://extensions` in the address bar, and press Enter.
-3.  **Enable Developer Mode:** Ensure that "Developer mode" in the top right corner of the Extensions page is toggled on.
+1.  **Download or Clone:**
+    *   Download the repository as a ZIP file and unzip it, or
+    *   Clone the repository using Git: `git clone https://github.com/your-username/json-lens-ai.git` (Replace `your-username/json-lens-ai.git` with the actual repository URL).
+2.  **Open Chrome Extensions:**
+    *   Open your Google Chrome browser.
+    *   Navigate to `chrome://extensions`.
+3.  **Enable Developer Mode:**
+    *   In the top right corner of the Extensions page, toggle on "Developer mode".
 4.  **Load Unpacked:**
-    *   Click the "Load unpacked" button that appears once Developer mode is enabled.
-    *   In the file dialog, navigate to the directory where you cloned or downloaded the extension's source code.
-    *   Select the root folder of the extension (the one containing `manifest.json`).
-5.  **Done!** JSON Lens AI should now appear in your list of installed extensions, and you can access it via its icon in the Chrome toolbar.
+    *   Click the "Load unpacked" button that appears.
+    *   Select the directory where you downloaded or cloned the extension (the folder containing `manifest.json`).
 
-## Usage
+The JSON Lens AI icon should now appear in your Chrome toolbar.
 
-JSON Lens AI is designed to be intuitive. Here's a typical workflow:
+## How to Use
 
 1.  **Accessing the Viewer:**
-    *   **Automatic Detection:** If you navigate to a webpage that serves raw JSON data, or open a `.json` file directly in Chrome, JSON Lens AI may automatically attempt to parse and display it (depending on final implementation and content script behavior).
-    *   **Extension Icon:** Click on the JSON Lens AI icon in your Chrome toolbar. This will likely open a popup or a dedicated viewer page.
-    *   **Pasting/Loading JSON:** If the viewer is open, you can often paste JSON directly or use the "Load JSON from URL" feature to fetch and display JSON from a specific web address.
+    *   **Automatic:** If you navigate to a URL that returns JSON data or open a local `.json` file in Chrome, JSON Lens AI may automatically open the viewer interface in a new tab. (Note: This behavior depends on the `content_script.js` functionality, assuming it redirects or provides a link to `viewer.html`).
+    *   **Manual Load:**
+        *   Click the JSON Lens AI icon in your Chrome toolbar to open the popup.
+        *   You can open the main viewer by clicking a button or link in the popup (if available - currently the `popup.html` is basic).
+        *   Alternatively, once `viewer.html` is open (e.g., from a previous session or by direct navigation if you bookmark it), you can use its URL bar to load JSON from a web address.
+    *   **Viewing JSON from Active Tab:** The extension might also offer an option (e.g., via context menu or popup) to capture and view JSON from the current page if it's embedded or available as a resource.
 
-2.  **Interacting with JSON:**
-    *   Once JSON is loaded, you'll see it displayed in a formatted, interactive tree view.
-    *   **View Options:** Toggle between raw and formatted views, or change themes.
-    *   **Navigation:** Expand/collapse nodes, use JSONPath to jump to specific parts, or use breadcrumbs to navigate.
-    *   **Search:** Utilize the search bar to find keys or values, with options for case sensitivity and regex.
-    *   **AI Insights:** Access the AI features (Summarize, Natural Language Query, Infer Schema, Explain Node) to gain deeper understanding of your data. You'll need to configure your Gemini API key in the settings first.
-    *   **Settings:** Customize the extension's behavior, API keys, AI models, and appearance through the settings panel.
+2.  **Loading JSON Data:**
+    *   **URL Input:** In the `viewer.html` page, use the "JSON URL" input field at the top to enter a direct link to a JSON file and click "Load".
+    *   **Automatic Detection:** For pages that are purely JSON, the extension's content script should automatically detect and provide an option to open it in the viewer.
+
+3.  **Interacting with JSON:**
+    *   **Toolbar:** The top toolbar in `viewer.html` provides most controls:
+        *   Load JSON from URL.
+        *   Toggle raw JSON view.
+        *   Switch themes.
+        *   Expand/collapse nodes.
+        *   Expand to a specific level.
+        *   Jump to a path using JSONPath.
+    *   **Search:** Use the search bar below the toolbar to find specific content within the JSON. You can specify whether to search keys, values, or both, and use options like case sensitivity or regular expressions.
+    *   **Breadcrumbs:** The breadcrumb trail below the search bar shows your current path in the JSON structure and allows for quick navigation to parent elements.
+
+4.  **Using AI Features:**
+    *   The AI features are located in the "AI Insights" panel within `viewer.html`.
+    *   **Configuration:** Before using AI features, you **must** configure your Gemini API key and select a model.
+        *   Click the "AI Settings" button (gear icon) in the toolbar.
+        *   Enter your Gemini API key in the provided field.
+        *   Choose your preferred Gemini model. You can also add custom model endpoints here.
+        *   Click "Close" to save settings.
+    *   Once configured, buttons like "Summarize JSON", "Infer Schema", etc., will become active. Click them to get AI-powered insights on the currently loaded JSON.
+    *   For "Explain Selected Node", first click on any key or value in the JSON viewer to select it, then click the button.
+
+5.  **Settings:**
+    *   Access general settings by clicking the "AI Settings" (gear icon) button in the toolbar.
+    *   Here you can configure:
+        *   Gemini API Key and Model.
+        *   Custom AI Models.
+        *   UI preferences like Font Size and Indentation width for the JSON display.
+
+## AI-Powered Insights
+
+JSON Lens AI integrates with Gemini models to provide intelligent analysis of your JSON data. To use these features, you must first configure your Gemini API Key and select a model in the **AI Settings** panel (accessible via the gear icon in the toolbar).
+
+Once configured, the following AI capabilities are available:
+
+*   **Summarize JSON:**
+    *   Provides a concise, human-readable summary of the overall structure, purpose, and key information within the loaded JSON data.
+    *   Useful for quickly understanding large or unfamiliar JSON documents.
+
+*   **Query with Natural Language (NLQ):**
+    *   Allows you to ask questions about the JSON data in plain English (e.g., "How many users are there?", "What are the names of products in the 'electronics' category?").
+    *   The AI will interpret your query and attempt to find the relevant information within the JSON.
+
+*   **Infer Schema:**
+    *   Analyzes the structure of the JSON data and generates a schema.
+    *   This schema can help you understand the expected data types, fields, and overall organization of the JSON.
+
+*   **Explain Selected Node:**
+    *   After selecting a specific key or value in the JSON viewer, this feature provides a contextual explanation of that node.
+    *   It can help clarify the meaning or purpose of a particular piece of data within the larger JSON structure.
+
+**Important:**
+*   Ensure you have a valid Gemini API key with the appropriate permissions.
+*   The quality and availability of AI insights depend on the selected Gemini model and the complexity of the JSON data.
 
 ## Contributing
 
-We welcome contributions to make JSON Lens AI even better! Whether you're looking to fix a bug, propose a new feature, or improve existing functionality, your help is appreciated.
+Contributions are welcome! If you have suggestions for improvements or want to add new features, please follow these steps:
 
-Here are a few ways you can contribute:
+1.  **Fork the Repository:** Create your own fork of the project.
+2.  **Create a Branch:** Make a new branch in your fork for your changes (e.g., `git checkout -b feature/your-feature-name`).
+3.  **Make Changes:** Implement your improvements or new features.
+4.  **Test Your Changes:** Ensure your changes work as expected and do not break existing functionality.
+5.  **Commit Your Changes:** Write clear and concise commit messages.
+6.  **Push to Your Fork:** Push your changes to your forked repository (e.g., `git push origin feature/your-feature-name`).
+7.  **Submit a Pull Request:** Open a pull request from your branch to the main repository's `main` (or `master`) branch.
 
-*   **Reporting Bugs:** If you encounter any issues or unexpected behavior, please open an issue on our GitHub repository. Provide as much detail as possible, including steps to reproduce, screenshots, and your environment (Chrome version, OS).
-*   **Suggesting Enhancements:** Have an idea for a new feature or an improvement to an existing one? Feel free to open an issue to discuss it.
-*   **Submitting Pull Requests:** If you'd like to contribute code:
-    1.  Fork the repository.
-    2.  Create a new branch for your feature or bug fix (`git checkout -b feature/your-feature-name` or `bugfix/your-bug-fix`).
-    3.  Make your changes and commit them with clear, descriptive messages.
-    4.  Push your changes to your fork (`git push origin feature/your-feature-name`).
-    5.  Open a pull request against the main repository. Please provide a clear description of the changes you've made.
+Please provide a clear description of your changes in the pull request.
 
-We aim to review and respond to issues and pull requests in a timely manner. Thank you for your interest in contributing to JSON Lens AI!
