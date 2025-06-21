@@ -2,39 +2,40 @@
   "manifest_version": 3,
   "name": "JSON Lens AI",
   "description": "Blazing-fast JSON viewer with built-in AI that summarises, queries & explains your data — 100 % open source.",
-  "version": "0.0.4",
+  "version": "1.0.1",
 
-  "icons": {
-    "16":  "icons/16.png",
-    "48":  "icons/48.png",
-    "128": "icons/128.png"
+  /* ---- permissions ---- */
+  "permissions": ["storage"],          /* activeTab & scripting removed */
+  "host_permissions": ["<all_urls>"],  /* needed for JSON detection & AI calls */
+
+  /* ---- action (toolbar) ---- */
+  "action": {
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16":  "icons/icon16.png",
+      "48":  "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
   },
 
-  "permissions": [
-    "storage"
-  ],
+  /* ---- icons for store & chrome://extensions ---- */
+  "icons": {
+    "16":  "icons/icon16.png",
+    "48":  "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
 
-  "host_permissions": [
-    "<all_urls>"
-  ],
+  /* ---- background service worker ---- */
+  "background": {
+    "service_worker": "background.js"
+  },
 
+  /* ---- content script that detects JSON ---- */
   "content_scripts": [
     {
       "matches": ["<all_urls>"],
-      "js": ["content.js"],
-      "run_at": "document_end"
+      "js": ["content_script.js"],
+      "run_at": "document_idle"
     }
-  ],
-
-  "action": {
-    "default_title": "JSON Lens AI",
-    "default_popup": "popup.html",
-    "default_icon": {
-      "16":  "icons/16.png",
-      "48":  "icons/48.png",
-      "128": "icons/128.png"
-    }
-  },
-
-  "homepage_url": "https://github.com/ashmohd/JSON-Lens-AI"
+  ]
 }
