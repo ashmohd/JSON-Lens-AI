@@ -210,14 +210,19 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  function populateModelDropdown() {
+  function populateModelDropdown(preferredModelValue = null) {
     if (!settingModelSelect) return;
-    const currentSelectedModel = settingModelSelect.value;
+
+    // Determine the model that should ideally be selected.
+    // If a preferredModelValue is passed (e.g. from loadSettings), use that.
+    // Otherwise (e.g. when called from add/remove custom model), use the current value of the dropdown.
+    const modelToAttemptToSelect = preferredModelValue !== null ? preferredModelValue : settingModelSelect.value;
+
     settingModelSelect.innerHTML = ''; // Clear existing options
 
     const defaultModels = [
         { value: "gemini-2.5-pro-preview-06-05", name: "gemini 2.5 pro" },
-        { value: "gemini-2.0-flash", name: "gemini 2.0 flash" },
+        { value: "gemini-2.0-flash", name: "gemini 2.0 flash" }, // DEFAULT_MODEL is 'gemini-2.0-flash'
         { value: "gemini-2.0-flash-lite", name: "gemini 2.0 flash lite" }
     ];
 
@@ -235,15 +240,26 @@ document.addEventListener('DOMContentLoaded', () => {
       settingModelSelect.appendChild(option);
     });
 
-    // Try to restore selection
-    settingModelSelect.value = currentSelectedModel;
-    // If the currentSelectedModel was removed or isn't in the new list, value will not be set.
-    // Check if the value was successfully set, otherwise default.
-    if (settingModelSelect.value !== currentSelectedModel) {
-      settingModelSelect.value = DEFAULT_MODEL; // Fallback to default
+    // Attempt to set the determined model
+    settingModelSelect.value = modelToAttemptToSelect;
+
+    // Fallback: If the desired model couldn't be selected (e.g., it's not in the options anymore, or was invalid)
+    // This happens if modelToAttemptToSelect is not a value of any existing option.
+    // In such a case, settingModelSelect.value might become "" or the value of the first option.
+    if (settingModelSelect.value !== modelToAttemptToSelect) {
+      settingModelSelect.value = DEFAULT_MODEL; // Fallback to the application's default
     }
-    // No need to call saveSettings() here as this function is typically called during loadSettings or after add/remove
-    // and saveSettings() will be called at the end of those operations if needed.
+
+    // Final defensive check: If after attempting to set DEFAULT_MODEL, the selection is still blank
+    // (which implies DEFAULT_MODEL might not be in the options or is problematic),
+    // and there are options available, select the first one.
+    if (settingModelSelect.value === "" && settingModelSelect.options.length > 0) {
+        const firstOptionValue = settingModelSelect.options[0].value;
+        console.warn(`Gemini model selection is blank after attempting to set to '${modelToAttemptToSelect}' and then to default '${DEFAULT_MODEL}'. This might indicate DEFAULT_MODEL ('${DEFAULT_MODEL}') is not a valid option or failed to select. Forcing selection to the first available model: '${firstOptionValue}'.`);
+        settingModelSelect.value = firstOptionValue;
+    }
+    // No need to call saveSettings() here as this function is typically called during loadSettings or
+    // after add/remove custom model operations, and saveSettings() will be called by those specific flows if needed.
   }
 
   async function addCustomModel() {
@@ -453,9 +469,9 @@ document.addEventListener('DOMContentLoaded', () => {
             if(settingApiKeyInput) settingApiKeyInput.value = loadedSettings.apiKey;
 
             userCustomModels = loadedSettings.customModels; // Load custom models
-            // Set model preference *before* populating dropdown, so it can try to preserve it
-            if(settingModelSelect) settingModelSelect.value = loadedSettings.modelPreference;
-            populateModelDropdown(); // Populate dropdown with defaults and loaded custom models
+            // Pass the loaded model preference directly to populateModelDropdown.
+            // No longer set settingModelSelect.value here directly before populating.
+            populateModelDropdown(loadedSettings.modelPreference); // Populate dropdown
             renderCustomModelsList(); // Render the list of custom models
 
             applySettings(loadedSettings); // Apply visual settings
@@ -470,8 +486,9 @@ document.addEventListener('DOMContentLoaded', () => {
         if(settingApiKeyInput) settingApiKeyInput.value = defaultValues[API_KEY_KEY];
 
         userCustomModels = defaultValues[CUSTOM_MODELS_KEY];
-        if(settingModelSelect) settingModelSelect.value = defaultValues[MODEL_PREFERENCE_KEY];
-        populateModelDropdown();
+        // Pass the default model preference directly to populateModelDropdown.
+        // No longer set settingModelSelect.value here directly before populating.
+        populateModelDropdown(defaultValues[MODEL_PREFERENCE_KEY]); // Populate dropdown
         renderCustomModelsList();
 
         applySettings({ fontSize: defaultValues[FONT_SIZE_KEY], indentWidth: defaultValues[INDENT_WIDTH_KEY] });
