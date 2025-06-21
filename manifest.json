@@ -1,30 +1,40 @@
 {
   "manifest_version": 3,
   "name": "JSON Lens AI",
-  "version": "1.0",
-  "description": "A Chrome extension to view, understand, and query JSON data with AI-powered insights.",
-  "permissions": ["activeTab", "storage", "scripting"],
-  "host_permissions": [
-    "https://*/*",
-    "http://*/*"
-  ],
-  "action": {
-    "default_popup": "popup.html",
-    "default_icon": "icons/icon16.png"
-  },
+  "description": "Blazing-fast JSON viewer with built-in AI that summarises, queries & explains your data — 100 % open source.",
+  "version": "0.0.4",
+
   "icons": {
-    "16": "icons/icon16.png",
-    "48": "icons/icon48.png",
-    "128": "icons/icon128.png"
+    "16":  "icons/16.png",
+    "48":  "icons/48.png",
+    "128": "icons/128.png"
   },
-  "background": {
-    "service_worker": "background.js"
-  },
+
+  "permissions": [
+    "storage"
+  ],
+
+  "host_permissions": [
+    "<all_urls>"
+  ],
+
   "content_scripts": [
     {
       "matches": ["<all_urls>"],
-      "js": ["content_script.js"],
-      "run_at": "document_idle"
+      "js": ["content.js"],
+      "run_at": "document_end"
     }
-  ]
+  ],
+
+  "action": {
+    "default_title": "JSON Lens AI",
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16":  "icons/16.png",
+      "48":  "icons/48.png",
+      "128": "icons/128.png"
+    }
+  },
+
+  "homepage_url": "https://github.com/ashmohd/JSON-Lens-AI"
 }
