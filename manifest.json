@@ -4,11 +4,9 @@
   "description": "Blazing-fast JSON viewer with built-in AI that summarises, queries & explains your data — 100 % open source.",
   "version": "1.0.1",
 
-  /* ---- permissions ---- */
-  "permissions": ["storage"],          /* activeTab & scripting removed */
-  "host_permissions": ["<all_urls>"],  /* needed for JSON detection & AI calls */
+  "permissions": ["storage"],
+  "host_permissions": ["<all_urls>"],
 
-  /* ---- action (toolbar) ---- */
   "action": {
     "default_popup": "popup.html",
     "default_icon": {
@@ -18,24 +16,23 @@
     }
   },
 
-  /* ---- icons for store & chrome://extensions ---- */
   "icons": {
     "16":  "icons/icon16.png",
     "48":  "icons/icon48.png",
     "128": "icons/icon128.png"
   },
 
-  /* ---- background service worker ---- */
   "background": {
     "service_worker": "background.js"
   },
 
-  /* ---- content script that detects JSON ---- */
   "content_scripts": [
     {
       "matches": ["<all_urls>"],
       "js": ["content_script.js"],
       "run_at": "document_idle"
     }
-  ]
+  ],
+
+  "homepage_url": "https://github.com/ashmohd/JSON-Lens-AI"
 }
