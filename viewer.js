@@ -169,7 +169,7 @@ document.addEventListener('DOMContentLoaded', () => {
   let userCustomModels = []; // To store loaded custom models
   const DEFAULT_FONT_SIZE = 13;
   const DEFAULT_INDENT_WIDTH = 20; // Default indentation in pixels
-  const DEFAULT_MODEL = 'gemini-1.0-flash'; // Updated Default AI Model
+  const DEFAULT_MODEL = 'gemini-2.0-flash'; // Updated Default AI Model
   const FONT_SIZE_KEY = 'setting_fontSize';
   const INDENT_WIDTH_KEY = 'setting_indentWidth';
   const API_KEY_KEY = 'geminiApiKey'; // Storage key for API Key
@@ -216,9 +216,9 @@ document.addEventListener('DOMContentLoaded', () => {
     settingModelSelect.innerHTML = ''; // Clear existing options
 
     const defaultModels = [
-        { value: "gemini-1.5-pro-preview-05-06", name: "gemini 2.5 pro" },
-        { value: "gemini-1.0-flash", name: "gemini 2.0 flash" },
-        { value: "gemini-1.0-flash-lite", name: "gemini 2.0 flash lite" }
+        { value: "gemini-2.5-pro-preview-06-05", name: "gemini 2.5 pro" },
+        { value: "gemini-2.0-flash", name: "gemini 2.0 flash" },
+        { value: "gemini-2.0-flash-lite", name: "gemini 2.0 flash lite" }
     ];
 
     defaultModels.forEach(model => {
